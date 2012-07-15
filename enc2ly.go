@@ -51,6 +51,33 @@ type Measure struct {
 	
 	VarSize int32  `offset:"0x4"`
 	VarData []byte
+	Elems []*MeasElem
+}
+
+type MeasElem struct {
+	Raw []byte
+}
+
+func readElem(c []byte) *MeasElem {
+	e := &MeasElem{}
+	e.Raw = c
+	return e
+}
+
+var endMarker = string([]byte{255,255})
+
+func (m *Measure) ReadElems() {
+	r := m.VarData
+	for len(r) >= 3	{
+		sz := r[3]
+
+		m.Elems = append(m.Elems, readElem(r[:sz]))
+		r = r[sz:]
+	}
+
+	if string(r) != endMarker {
+		log.Fatalf("end marker not found")
+	}
 }
 
 type CGLX struct {
@@ -147,6 +174,7 @@ func readData(c []byte, f *Data) error {
 		off += ReadBlock(c, off, m)
 		m.VarData = c[off:off+int(m.VarSize)]
 		off += int(m.VarSize)
+		m.ReadElems()
 	}
 
 	return nil
@@ -198,7 +226,7 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	analyzeTags(content)
+	//	analyzeTags(content)
 
 	d := &Data{}
 	err = readData(content, d)
@@ -206,28 +234,34 @@ func main() {
 		log.Fatalf("readData %v", err)
 	}
 	log.Println("HEAD", &d.Header)
-	analyzeMeas(d)
-	mess(d)
+	for _, e := range d.Measures[2].Elems {
+		log.Println(e)
+	}
 }
 
 func mess(d *Data) {
-	fmt.Println("meas", d.Measures[2].Raw[4:])
-	fmt.Println(":58", d.Measures[2].VarData[:58])
 	fmt.Println("last", d.Measures[2].VarData[309:])
-	meas :=  d.Measures[2].VarData[58:]
-	for i, c := range meas[:28] {
-		if i % 4 == 0 {
+	meas := d.Measures[2].VarData[46:]
+	fmt.Println("meas", meas)
+
+	
+	for len(meas) > 0 {
+		for i, c := range meas[:28] {
+			if i % 4 == 0 {
 				fmt.Printf("\n")
 			}
-		fmt.Printf("%2d: %3d ", i, c)
+			fmt.Printf("    %2d: %3d ", i, c)
+		}
 	}
 	fmt.Printf("\n")
 
+	
+	/*
 	for i := 0; i < 28; i++ {
 		raw := make([]byte, len(d.Raw))
 		copy(raw, d.Raw)
 
-		meas = raw[d.Measures[2].Offset + 62 + 58:]
+		meas = raw[d.Measures[2].Offset + 62 + 46:]
 		meas = meas[:28]
 		meas[i] ++
 		err := ioutil.WriteFile(fmt.Sprintf("mess%d.enc", i), raw, 0644)
@@ -235,42 +269,46 @@ func mess(d *Data) {
 			log.Fatalf("WriteFile:", err)
 		}
 	}
+	 */	
+
+	raw := make([]byte, len(d.Raw))
+	copy(raw, d.Raw)
+	meas = raw[d.Measures[2].Offset + 62 + 46:]
+	meas = meas[:28]
+	meas[12] = 14
+	err := ioutil.WriteFile("mess.enc", raw, 0644)
+	if err != nil {
+		log.Fatalf("WriteFile:", err)
+	}
 	
-	// 0: xoff, relative to measure start. 128 = full meas?
-	// 1: 57 -> 255 = appears in first bar.
-	//raw[1] = 255
-
-	//raw[2] = 254
-
-	// 3
-	// 4: step - 0 = central C.? 
-	// 5: MIDI ? 
+	// 0
+	// 1
+	// 2 - stem;  
+	// 3 - special marker? mod causes loop.
+	// 4 - stem?
+	// 5
 	// 6
 	// 7
-	// 8
-	// 9
-	//meas[10] = 1
-
-	// 10 
-	// 11: chromatic step 1=sharp, 2=flat, 3=natural, 4=dsharp,
-	// 5=dflat - used as offset in font. Using 6 gives a longa symbol
-	//raw[11] = 0
-	// 12
-	// 13
-	// 14
+	// 8 - head visibility
+	// 9 
+	// 10 - ?
+	// 11 - 
+	// 12: xoff, relative to measure start. 128 = full meas?
+	// 13: 57 -> 255 = appears in first bar.
 	// 15
-	// 16
-	// 17
+	// 16: step - 0 = central C.? 
+	// 17 MIDI ? 
 	// 18
 	// 19
 	// 20
-	// 21
-	// 22
+	// 21 chromatic alteration.  1=sharp, 2=flat, 3=natural, 4=dsharp,
+	//   5=dflat - used as offset in font. Using 6 gives a longa symbol
+	// 22 
 	// 23
 	// 24
 	// 25
 	// 26
-	// 27 - next note
+	// 27
 	
 }
 
