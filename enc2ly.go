@@ -211,47 +211,67 @@ func main() {
 }
 
 func mess(d *Data) {
-	raw := make([]byte, len(d.Raw))
-	copy(raw, d.Raw)
-
 	fmt.Println("meas", d.Measures[2].Raw[4:])
 	fmt.Println(":58", d.Measures[2].VarData[:58])
 	fmt.Println("last", d.Measures[2].VarData[309:])
-	meas := d.Measures[2].VarData[58:]
-	meas = meas[:28]
-	for i, c := range meas {
+	meas :=  d.Measures[2].VarData[58:]
+	for i, c := range meas[:28] {
 		if i % 4 == 0 {
-			fmt.Printf("\n")
-		}
+				fmt.Printf("\n")
+			}
 		fmt.Printf("%2d: %3d ", i, c)
 	}
 	fmt.Printf("\n")
 
+	for i := 0; i < 28; i++ {
+		raw := make([]byte, len(d.Raw))
+		copy(raw, d.Raw)
+
+		meas = raw[d.Measures[2].Offset + 62 + 58:]
+		meas = meas[:28]
+		meas[i] ++
+		err := ioutil.WriteFile(fmt.Sprintf("mess%d.enc", i), raw, 0644)
+		if err != nil {
+			log.Fatalf("WriteFile:", err)
+		}
+	}
+	
 	// 0: xoff, relative to measure start. 128 = full meas?
 	// 1: 57 -> 255 = appears in first bar.
 	//raw[1] = 255
 
 	//raw[2] = 254
 
-	// 3: step - 0 = central C.
-	// 4 
-
-	raw[3] = 17
+	// 3
+	// 4: step - 0 = central C.? 
 	// 5: MIDI ? 
 	// 6
 	// 7
 	// 8
 	// 9
+	//meas[10] = 1
+
 	// 10 
-	// 11
-	// chromatic step 1=sharp, 2=flat, 3=natural, 4=dsharp,
+	// 11: chromatic step 1=sharp, 2=flat, 3=natural, 4=dsharp,
 	// 5=dflat - used as offset in font. Using 6 gives a longa symbol
 	//raw[11] = 0
-
-	err := ioutil.WriteFile("mess.enc", raw, 0644)
-	if err != nil {
-		log.Fatalf("WriteFile:", err)
-	}
+	// 12
+	// 13
+	// 14
+	// 15
+	// 16
+	// 17
+	// 18
+	// 19
+	// 20
+	// 21
+	// 22
+	// 23
+	// 24
+	// 25
+	// 26
+	// 27 - next note
+	
 }
 
 func analyzeMeas(d *Data) {
