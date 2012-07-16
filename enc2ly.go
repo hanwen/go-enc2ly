@@ -55,6 +55,8 @@ type Measure struct {
 }
 
 type MeasElem interface {
+	GetStaff() int
+	GetOffset() int
 }
 
 /*
@@ -68,33 +70,69 @@ type MeasElem interface {
  */
 type Note struct {
 	Raw []byte
+	Offset int
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
 
+	XOffset       byte `offset:"10"`
+	
 	// type off 5: 204=?, 133=?, 1 = note, 30 = ? , 2=?
 	Tick            uint16 `offset:"0"`
 	DurationTicks   uint16 `offset:"16"`
-	NoteName        byte `offset:"12"`
+
+	// ledger below staff = 0; top line = 10
+	Position        int8 `offset:"12"`
+
+	// 1=sharp, 2=flat, 3=natural, 4=dsharp, 5=dflat
+	// used as offset in font. Using 6 gives a longa symbol
 	AlterationGlyph byte `offset:"21"`
 	SemitonePitch   byte `offset:"15"`
 }
 
+func (n *Note) GetStaff() int {
+	return int(n.Staff)
+}
+
+func (n *Note) GetOffset() int {
+	return int(n.Offset)
+}
+
 type Other struct {
 	Raw []byte
+	Offset int
 	Tick            uint16 `offset:"0"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
 }
 
+func (n *Other) GetStaff() int {
+	return int(n.Staff)
+}
+func (n *Other) GetOffset() int {
+	return int(n.Offset)
+}
+
 type Rest struct {
 	Raw []byte
+	Offset int
+	
+	DotControl byte `offset:"14"`
+	XOffset    byte `offset:"10"`
+	Position int8 `offset:"12"`
 	Tick            uint16 `offset:"0"`
 	DurationTicks   uint16 `offset:"16"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
 }
 
-func readElem(c []byte) (e MeasElem) {
+func (n *Rest) GetOffset() int {
+	return int(n.Offset)
+}
+func (n *Rest) GetStaff() int {
+	return int(n.Staff)
+}
+
+func readElem(c []byte, off int) (e MeasElem) {
 	switch len(c) {
 	case 28:
 		e = &Note{Raw: c} 
@@ -103,7 +141,7 @@ func readElem(c []byte) (e MeasElem) {
 	default:
 		e = &Other{Raw: c}
 	}
-	FillBlock(c, e)
+	FillBlock(c, off, e)
 	return e
 }
 
@@ -111,11 +149,13 @@ var endMarker = string([]byte{255,255})
 
 func (m *Measure) ReadElems() {
 	r := m.VarData
+	off := m.Offset + 62  // todo - extract.
 	for len(r) >= 3	{
-		sz := r[3]
+		sz := int(r[3])
 
-		m.Elems = append(m.Elems, readElem(r[:sz]))
+		m.Elems = append(m.Elems, readElem(r[:sz], off))
 		r = r[sz:]
+		off += sz
 	}
 
 	if string(r) != endMarker {
@@ -133,8 +173,11 @@ type CGLXTrailer struct {
 	Raw []byte `want:"CGLX" fixed:"5"`
 }
 
-func FillBlock(raw []byte, dest interface{}) {
+func FillBlock(raw []byte, offset int, dest interface{}) {
 	v := reflect.ValueOf(dest).Elem()
+	byteOffAddr := v.FieldByName("Offset").Addr().Interface().(*int)
+	*byteOffAddr = offset
+	
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		offStr := v.Type().Field(i).Tag.Get("offset")
@@ -151,8 +194,6 @@ func FillBlock(raw []byte, dest interface{}) {
 
 func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	v := reflect.ValueOf(dest).Elem()
-	byteOffAddr := v.FieldByName("Offset").Addr().Interface().(*int)
-	*byteOffAddr = off
 	
 	tagField, ok := v.Type().FieldByName("Raw")
 	if !ok {
@@ -172,8 +213,7 @@ func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	if string(raw[:4]) != want {
 		log.Fatalf("Got tag %q want %q - %q", raw[:4], want, raw)
 	}
-	FillBlock(raw, dest)
-
+	FillBlock(raw, off, dest)
 	return int(sz)
 }
 
@@ -273,98 +313,49 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	//	analyzeTags(content)
-
 	d := &Data{}
 	err = readData(content, d)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
 	log.Println("HEAD", &d.Header)
-	for _, e := range d.Measures[2].Elems {
-		log.Printf("%+v", e)
+	for _, e := range d.Measures[57].Elems {
+		if e.GetStaff() == 65 {
+			log.Printf("%+v", e)
+		}
 	}
+	mess(d)
 }
 
 func mess(d *Data) {
-	fmt.Println("last", d.Measures[2].VarData[309:])
-	meas := d.Measures[2].VarData[46:]
-	fmt.Println("meas", meas)
-
-	
-	for len(meas) > 0 {
-		for i, c := range meas[:28] {
-			if i % 4 == 0 {
-				fmt.Printf("\n")
-			}
-			fmt.Printf("    %2d: %3d ", i, c)
-		}
+	fmt.Printf("mess\n")
+	for _, m:= range d.Measures[0].Elems {
+		fmt.Printf("%+v\n", m)
 	}
-	fmt.Printf("\n")
-
-	
-	/*
-	for i := 0; i < 28; i++ {
-		raw := make([]byte, len(d.Raw))
-		copy(raw, d.Raw)
-
-		meas = raw[d.Measures[2].Offset + 62 + 46:]
-		meas = meas[:28]
-		meas[i] ++
-		err := ioutil.WriteFile(fmt.Sprintf("mess%d.enc", i), raw, 0644)
-		if err != nil {
-			log.Fatalf("WriteFile:", err)
-		}
-	}
-	 */	
 
 	raw := make([]byte, len(d.Raw))
 	copy(raw, d.Raw)
-	meas = raw[d.Measures[2].Offset + 62 + 46:]
-	meas = meas[:28]
-	meas[12] = 14
+
+	raw[d.Measures[0].Elems[0].GetOffset() + 14] = 0x81
+
+	d2 := Data{}
+	readData(raw, &d2)
+	
+
+	fmt.Printf("messed\n")
+	for _, m:= range d2.Measures[0].Elems {
+		fmt.Printf("%+v\n", m)
+	}
+	
 	err := ioutil.WriteFile("mess.enc", raw, 0644)
 	if err != nil {
 		log.Fatalf("WriteFile:", err)
 	}
-	
-	// 0
-	// 1
-	// 2 - stem;  
-	// 3 - special marker? mod causes loop.
-	// 4 - stem?
-	// 5
-	// 6
-	// 7
-	// 8 - head visibility
-	// 9 
-	// 10 - ?
-	// 11 - 
-	// 12: xoff, relative to measure start. 128 = full meas?
-	// 13: 57 -> 255 = appears in first bar.
-	// 15
-	// 16: step - 0 = central C.? 
-	// 17 MIDI ? 
-	// 18
-	// 19
-	// 20
-	// 21 chromatic alteration.  1=sharp, 2=flat, 3=natural, 4=dsharp,
-	//   5=dflat - used as offset in font. Using 6 gives a longa symbol
-	// 22 
-	// 23
-	// 24
-	// 25
-	// 26
-	// 27
-	
 }
+
 /*
 
-R4  Raw:[0   0 128 18 0 3  0  0 0 0 15  0 6  0 28 0  240 0] // 1/4
-R16 Raw:[240 0 128 18 0 5  0  0 0 0 54  0 5  0 24 0  60  0] // 1/16
-
 rests: base 240
-
  
 N16 Raw:[44  1 144 28 0 5 16  0 0 0 70  0 10 0 0  77 48  0 80 64 128 0 0 0 0 0 0 0]
 N   Raw:[104 1 144 28 0 5 16  0 0 0 87  0 11 0 0  79 48  0 80 64 128 0 0 0 0 0 0 0]
