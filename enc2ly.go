@@ -51,16 +51,59 @@ type Measure struct {
 	
 	VarSize int32  `offset:"0x4"`
 	VarData []byte
-	Elems []*MeasElem
+	Elems []MeasElem
 }
 
-type MeasElem struct {
+type MeasElem interface {
+}
+
+/*
+ sizes
+ 
+ 18 - rest
+ 28 - note
+ 86 - ?
+ 62 - ?
+ 16 - ?
+ */
+type Note struct {
 	Raw []byte
+	Size  byte `offset:"3"`
+	Staff byte `offset:"4"`
+
+	// type off 5: 204=?, 133=?, 1 = note, 30 = ? , 2=?
+	Tick            uint16 `offset:"0"`
+	DurationTicks   uint16 `offset:"16"`
+	NoteName        byte `offset:"12"`
+	AlterationGlyph byte `offset:"21"`
+	SemitonePitch   byte `offset:"15"`
 }
 
-func readElem(c []byte) *MeasElem {
-	e := &MeasElem{}
-	e.Raw = c
+type Other struct {
+	Raw []byte
+	Tick            uint16 `offset:"0"`
+	Size  byte `offset:"3"`
+	Staff byte `offset:"4"`
+}
+
+type Rest struct {
+	Raw []byte
+	Tick            uint16 `offset:"0"`
+	DurationTicks   uint16 `offset:"16"`
+	Size  byte `offset:"3"`
+	Staff byte `offset:"4"`
+}
+
+func readElem(c []byte) (e MeasElem) {
+	switch len(c) {
+	case 28:
+		e = &Note{Raw: c} 
+	case 18:
+		e = &Rest{Raw: c}
+	default:
+		e = &Other{Raw: c}
+	}
+	FillBlock(c, e)
 	return e
 }
 
@@ -90,7 +133,23 @@ type CGLXTrailer struct {
 	Raw []byte `want:"CGLX" fixed:"5"`
 }
 
-func ReadBlock(c []byte, off int, dest interface{}) int {
+func FillBlock(raw []byte, dest interface{}) {
+	v := reflect.ValueOf(dest).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		offStr := v.Type().Field(i).Tag.Get("offset")
+		if offStr == "" {
+			continue
+		}
+
+		off, _ := strconv.ParseInt(offStr, 0, 64)
+
+		z := f.Addr().Interface()
+		binary.Read(bytes.NewBuffer(raw[off:]), binary.LittleEndian, z)
+	}
+}
+
+func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	v := reflect.ValueOf(dest).Elem()
 	byteOffAddr := v.FieldByName("Offset").Addr().Interface().(*int)
 	*byteOffAddr = off
@@ -113,19 +172,7 @@ func ReadBlock(c []byte, off int, dest interface{}) int {
 	if string(raw[:4]) != want {
 		log.Fatalf("Got tag %q want %q - %q", raw[:4], want, raw)
 	}
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-
-		offStr := v.Type().Field(i).Tag.Get("offset")
-		if offStr == "" {
-			continue
-		}
-
-		off, _ := strconv.ParseInt(offStr, 0, 64)
-
-		z := f.Addr().Interface()
-		binary.Read(bytes.NewBuffer(raw[off:]), binary.LittleEndian, z)
-	}
+	FillBlock(raw, dest)
 
 	return int(sz)
 }
@@ -148,22 +195,22 @@ type Data struct {
 func readData(c []byte, f *Data) error {
 	f.Raw = c
 	off := 0
-	off += ReadBlock(c, off, &f.Header)
+	off += ReadTaggedBlock(c, off, &f.Header)
 	f.Cglx = make([]CGLX, f.Header.CglxCount-1)
 	for i := 0; i < int(f.Header.CglxCount-1); i++ {
-		off += ReadBlock(c, off, &f.Cglx[i])
+		off += ReadTaggedBlock(c, off, &f.Cglx[i])
 	}
 	trailer := CGLXTrailer{}
-	off += ReadBlock(c, off, &trailer)
+	off += ReadTaggedBlock(c, off, &trailer)
 	f.Pages = make([]Page, f.Header.PageCount)
 	for i := 0; i < int(f.Header.PageCount); i++ {
-		off += ReadBlock(c, off, &f.Pages[i])
+		off += ReadTaggedBlock(c, off, &f.Pages[i])
 	}
 
 	f.Lines = make([]Line, f.Header.LineCount)
 	for i := 0; i < int(f.Header.LineCount); i++ {
 		l := &f.Lines[i]
-		off += ReadBlock(c, off, l)
+		off += ReadTaggedBlock(c, off, l)
 		l.VarData = c[off:off+int(l.VarSize)]
 		off += int(l.VarSize)
 	}
@@ -171,7 +218,7 @@ func readData(c []byte, f *Data) error {
 	f.Measures = make([]Measure, f.Header.MeasureCount)
 	for i := 0; i < int(f.Header.MeasureCount); i++ {
 		m := &f.Measures[i]
-		off += ReadBlock(c, off, m)
+		off += ReadTaggedBlock(c, off, m)
 		m.VarData = c[off:off+int(m.VarSize)]
 		off += int(m.VarSize)
 		m.ReadElems()
@@ -235,7 +282,7 @@ func main() {
 	}
 	log.Println("HEAD", &d.Header)
 	for _, e := range d.Measures[2].Elems {
-		log.Println(e)
+		log.Printf("%+v", e)
 	}
 }
 
@@ -311,22 +358,16 @@ func mess(d *Data) {
 	// 27
 	
 }
+/*
 
-func analyzeMeas(d *Data) {
-	m1 := d.Measures[2].VarData
-	m2 := d.Measures[10].VarData
-	if len(m1) != len(m2) {
-		log.Println("bah")
-		return
-	}
+R4  Raw:[0   0 128 18 0 3  0  0 0 0 15  0 6  0 28 0  240 0] // 1/4
+R16 Raw:[240 0 128 18 0 5  0  0 0 0 54  0 5  0 24 0  60  0] // 1/16
 
-	n := 0
-	for i, c := range m1 {
-		if c != m2[i] {
-			fmt.Println("diff", i, c, m2[i])
-			n++
-		}
-	}
-	fmt.Println("diffcnt", n)
-	return
-}
+rests: base 240
+
+ 
+N16 Raw:[44  1 144 28 0 5 16  0 0 0 70  0 10 0 0  77 48  0 80 64 128 0 0 0 0 0 0 0]
+N   Raw:[104 1 144 28 0 5 16  0 0 0 87  0 11 0 0  79 48  0 80 64 128 0 0 0 0 0 0 0]
+N   Raw:[164 1 144 28 0 5 144 0 0 0 111 0 11 0 0  80 48  0 80 64 128 1 0 0 0 0 0 0]
+N4  Raw:[0   0 144 28 0 3 1   0 0 0 15  0 12 0 0  81 192 0 80 64 135 0 0 0 0 0 0 0]
+*/
