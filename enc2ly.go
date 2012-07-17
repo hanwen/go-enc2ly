@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-//	"io"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -44,40 +43,55 @@ type Line struct {
 type Measure struct {
 	Offset int
 	Raw     []byte `want:"MEAS" fixed:"62"`
-	Symbol  byte  `offset:"10"`
-	TimeSigCode uint32 `offset:"8"`
-	TimeSigNum byte `offset:"0xc"`
-	TimeSigDen byte `offset:"0xd"`
+
+	VarSize int32  `offset:"4"`
+	Bpm     uint16 `offset:"8"`
+	TimeSigGlyph byte `offset:"10"`
+	TimeSigNumTicks uint16 `offset:"12"`
+	TimeSigDenTicks uint16 `offset:"14"`
+	TimeSigNum byte `offset:"16"`
+	TimeSigDen byte `offset:"17"`
 	
-	VarSize int32  `offset:"0x4"`
 	VarData []byte
 	Elems []MeasElem
 }
 
 type MeasElem interface {
+	GetRaw() []byte
 	GetStaff() int
 	GetOffset() int
+	Sz() int
 }
 
-/*
- sizes
- 
- 18 - rest
- 28 - note
- 86 - ?
- 62 - ?
- 16 - ?
- */
-type Note struct {
+type MeasElemBase struct {
 	Raw []byte
 	Offset int
+	Tick  uint16 `offset:"0"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
+}
 
+func (n *MeasElemBase) GetRaw() []byte {
+	return n.Raw
+}
+
+func (n *MeasElemBase) Sz() int {
+	return len(n.Raw)
+}
+
+func (n *MeasElemBase) GetStaff() int {
+	return int(n.Staff)
+}
+
+func (n *MeasElemBase) GetOffset() int {
+	return int(n.Offset)
+}
+
+type Note struct {
+	MeasElemBase
 	XOffset       byte `offset:"10"`
 	
 	// type off 5: 204=?, 133=?, 1 = note, 30 = ? , 2=?
-	Tick            uint16 `offset:"0"`
 	DurationTicks   uint16 `offset:"16"`
 
 	// ledger below staff = 0; top line = 10
@@ -89,61 +103,62 @@ type Note struct {
 	SemitonePitch   byte `offset:"15"`
 }
 
-func (n *Note) GetStaff() int {
-	return int(n.Staff)
-}
-
-func (n *Note) GetOffset() int {
-	return int(n.Offset)
-}
-
 type Other struct {
-	Raw []byte
-	Offset int
-	Tick            uint16 `offset:"0"`
-	Size  byte `offset:"3"`
-	Staff byte `offset:"4"`
+	MeasElemBase
 }
 
-func (n *Other) GetStaff() int {
-	return int(n.Staff)
+type Script struct {
+	MeasElemBase
+	XOff byte `offset:"10"`
 }
-func (n *Other) GetOffset() int {
-	return int(n.Offset)
+
+type Beam struct {
+	MeasElemBase
+	LeftPos int8 `offset:"18"` 
+	RightPos int8 `offset:"19"` 
 }
 
 type Rest struct {
-	Raw []byte
-	Offset int
+	MeasElemBase
 	
 	DotControl byte `offset:"14"`
 	XOffset    byte `offset:"10"`
 	Position int8 `offset:"12"`
-	Tick            uint16 `offset:"0"`
 	DurationTicks   uint16 `offset:"16"`
-	Size  byte `offset:"3"`
-	Staff byte `offset:"4"`
-}
-
-func (n *Rest) GetOffset() int {
-	return int(n.Offset)
-}
-func (n *Rest) GetStaff() int {
-	return int(n.Staff)
 }
 
 func readElem(c []byte, off int) (e MeasElem) {
+	// ugh - how to determine the type for each element?
 	switch len(c) {
 	case 28:
-		e = &Note{Raw: c} 
+		e = &Note{} 
 	case 18:
-		e = &Rest{Raw: c}
+		e = &Rest{}
+	case 30:
+		e = &Beam{}
+	case 16:
+		e = &Script{}
 	default:
-		e = &Other{Raw: c}
+		e = &Other{}
 	}
 	FillBlock(c, off, e)
 	return e
 }
+
+
+
+func (n *Beam) Sz() int {
+	return len(n.Raw)
+}
+
+func (n *Beam) GetOffset() int {
+	return int(n.Offset)
+}
+
+func (n *Beam) GetStaff() int {
+	return int(n.Staff)
+}
+
 
 var endMarker = string([]byte{255,255})
 
@@ -177,8 +192,20 @@ func FillBlock(raw []byte, offset int, dest interface{}) {
 	v := reflect.ValueOf(dest).Elem()
 	byteOffAddr := v.FieldByName("Offset").Addr().Interface().(*int)
 	*byteOffAddr = offset
+
+	rawAddr := v.FieldByName("Raw").Addr().Interface().(*[]byte)
+	*rawAddr = raw
 	
+	FillFields(raw, dest)
+}
+
+func FillFields(raw []byte, dest interface{}) {
+	v := reflect.ValueOf(dest).Elem()
 	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Anonymous {
+			FillFields(raw, v.Field(i).Addr().Interface())
+			continue
+		}
 		f := v.Field(i)
 		offStr := v.Type().Field(i).Tag.Get("offset")
 		if offStr == "" {
@@ -276,6 +303,16 @@ func isH(x []byte) bool {
 	return true
 }
 
+func dumpBytes(d []byte) {
+	for i, c := range d {
+		fmt.Printf("%5d: %3d", i, c)
+		if i % 4 == 3 && i > 0 {
+			fmt.Printf("\n")
+		}
+	}
+	fmt.Printf("\n")
+}
+
 func analyzeTags(content []byte) {
 	tags := map[string]int{}
 	lastHI := 0
@@ -318,13 +355,35 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-	log.Println("HEAD", &d.Header)
-	for _, e := range d.Measures[57].Elems {
-		if e.GetStaff() == 65 {
-			log.Printf("%+v", e)
+	
+	fmt.Printf("meas 0\n")
+	type Pair struct { A,B int }
+	sizes := map[Pair]bool{}
+	for _, m:= range d.Measures {
+		for _, e := range m.Elems {
+			sizes[Pair{e.Sz(), int(e.GetRaw()[5])}] = true
 		}
 	}
-	mess(d)
+	fmt.Println(sizes)
+	//messM(d)
+}
+
+func messM(d *Data) {
+	raw := make([]byte, len(d.Raw))
+	copy(raw, d.Raw)
+
+	d2 := Data{}
+	readData(raw, &d2)
+	
+	for _, m:= range d2.Measures[0].Elems {
+		fmt.Printf("%+v\n", m)
+	}
+	
+	err := ioutil.WriteFile("mess.enc", raw, 0644)
+	if err != nil {
+		log.Fatalf("WriteFile:", err)
+	}
+	
 }
 
 func mess(d *Data) {
@@ -352,13 +411,3 @@ func mess(d *Data) {
 		log.Fatalf("WriteFile:", err)
 	}
 }
-
-/*
-
-rests: base 240
- 
-N16 Raw:[44  1 144 28 0 5 16  0 0 0 70  0 10 0 0  77 48  0 80 64 128 0 0 0 0 0 0 0]
-N   Raw:[104 1 144 28 0 5 16  0 0 0 87  0 11 0 0  79 48  0 80 64 128 0 0 0 0 0 0 0]
-N   Raw:[164 1 144 28 0 5 144 0 0 0 111 0 11 0 0  80 48  0 80 64 128 1 0 0 0 0 0 0]
-N4  Raw:[0   0 144 28 0 3 1   0 0 0 15  0 12 0 0  81 192 0 80 64 135 0 0 0 0 0 0 0]
-*/
