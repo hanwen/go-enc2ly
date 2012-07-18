@@ -11,12 +11,6 @@ import (
 	"strconv"
 )
 
-type Tag [4]byte
-
-func (t Tag) Tag() string {
-	return string(t[:])
-}
-
 type Header struct {
 	Offset     int
 	Raw []byte `want:"SCOW" fixed:"431"`
