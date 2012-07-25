@@ -11,6 +11,11 @@ import (
 	"strconv"
 )
 
+type FirstStaff struct {
+	// First staff is in the header block.
+	Name [10]byte `offset:"202"`
+}
+
 type Header struct {
 	Offset     int
 	Raw []byte `want:"SCOW" fixed:"431"`
@@ -20,6 +25,7 @@ type Header struct {
 	CglxCount      byte  `offset:"0x32"`
 	StaffPerSystem byte  `offset:"0x33"`
 	MeasureCount   int16 `offset:"0x34"`
+	FirstStaff
 }
 
 type Page struct {
@@ -65,7 +71,7 @@ type MeasElemBase struct {
 	Staff byte `offset:"4"`
 
 	// not sure what kind of ID this is.
-	Id byte `offset:"5"`
+	// Id byte `offset:"5"`
 }
 
 func (n *MeasElemBase) GetRaw() []byte {
@@ -100,6 +106,13 @@ type Note struct {
 	SemitonePitch   byte `offset:"15"`
 }
 
+
+type KeyChange struct {
+	MeasElemBase
+	NewKey byte  `offset:"5"`
+	OldKey byte  `offset:"10"`
+	
+}
 type Other struct {
 	MeasElemBase
 }
@@ -127,7 +140,9 @@ type Rest struct {
 func readElem(c []byte, off int) (e MeasElem) {
 	switch len(c) {
 	case 28:
-		e = &Note{} 
+		e = &Note{}
+	case 14:
+		e = &KeyChange{}
 	case 18:
 		e = &Rest{}
 	case 30:
@@ -182,6 +197,10 @@ type CGLX struct {
 	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
 	// 6=F_8
 	Clef byte `offset:"185"`
+
+	// 193 - 200: IDs 1..cglx (repeated?)
+	// 201 - 208: (repeated?)
+	// 209 - 216: (repeated?)
 }
 
 type CGLXTrailer struct {
@@ -321,6 +340,13 @@ func analyzeTags(content []byte) {
 	for i, _ := range content {
 		if isH(content[i:]) && i-lastHI > 4 {
 			log.Printf("Header %q, delta %d", lastHName, i-lastHI)
+			sectionContent := content[lastHI:i]
+			want := []byte("Flaut")
+			if idx:= bytes.Index(sectionContent, want); idx > 0 {
+				log.Println("found first staff", idx)
+
+				log.Printf("content %q", content[200:432])
+			}
 			lastHI = i
 			lastHName = string(content[i : i+4])
 			tags[lastHName]++
@@ -359,7 +385,8 @@ func main() {
 	}
 	analyzeCglx(d)
 //	analyzeMeas5(d)
-	log.Println(&d.Header)
+	messM(d)
+	log.Printf("%q %v", d.Header.Name, &d.Header)
 }
 
 func analyzeCglx(d *Data) {
@@ -373,17 +400,28 @@ func analyzeCglx(d *Data) {
 			occs[i][int(c.Raw[i])]++
 		}
 	}
+	log.Printf("looking for key")
+	for j := 22; j < 242; j++ {
+		if len(occs[j]) == 1 {
+			continue
+		}
+		log.Println("values", j, len(occs[j]))
+		for _, c := range d.Cglx {
+			fmt.Printf("%d ", c.Raw[j])
+		}
+		fmt.Printf("\n")
+	}
+	
 	for i := 0; i < 242; i++ {
 		if len(occs[i]) == 3 {
 			fmt.Printf("%d: %d diff %v\n", i, len(occs[i]), occs[i])
 		}
 	}
+
 	fmt.Printf("len cg %d\n", len(d.Cglx))
 	for i, c := range d.Cglx {
-		fmt.Printf("%d %q: %d\n", i,c.Name, c.Raw[185])
+		fmt.Printf("%d %q: %d key %d\n", i,c.Name, c.Raw[185], c.Raw[186])
 	}
-	// 185
-	// 218
 }
 
 func analyzeMeas5(d *Data) {
@@ -410,7 +448,7 @@ func messM(d *Data) {
 	d2 := Data{}
 	readData(raw, &d2)
 	
-	for _, m:= range d2.Measures[0].Elems {
+	for _, m:= range d2.Measures[48].Elems {
 		fmt.Printf("%+v\n", m)
 	}
 	
