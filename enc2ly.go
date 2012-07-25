@@ -61,6 +61,7 @@ type MeasElem interface {
 	GetStaff() int
 	GetOffset() int
 	Sz() int
+	GetType() int
 }
 
 type MeasElemBase struct {
@@ -69,13 +70,17 @@ type MeasElemBase struct {
 	Tick  uint16 `offset:"0"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
+	Type  byte `offset:"2"`
 
 	// not sure what kind of ID this is.
-	// Id byte `offset:"5"`
 }
 
 func (n *MeasElemBase) GetRaw() []byte {
 	return n.Raw
+}
+
+func (n *MeasElemBase) GetType() int {
+	return int(n.Type)
 }
 
 func (n *MeasElemBase) Sz() int {
@@ -138,20 +143,30 @@ type Rest struct {
 }
 
 func readElem(c []byte, off int) (e MeasElem) {
-	switch len(c) {
-	case 28:
+	switch c[2] {
+	case 144:
+		fallthrough
+	case 145:
 		e = &Note{}
-	case 14:
+	case 32:
 		e = &KeyChange{}
-	case 18:
+	case 48:
+		fallthrough
+	case 128:
 		e = &Rest{}
-	case 30:
-		e = &Beam{}
-	case 16:
-		e = &Script{}
-	default:
+
+	case 80:
+		switch c[3] {
+		case 16:
+			e = &Script{}
+		case 86:
+		case 28:
+		}
+	}
+	if e == nil {
 		e = &Other{}
 	}
+	
 	FillBlock(c, off, e)
 	return e
 }
@@ -383,10 +398,31 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-	analyzeCglx(d)
+//	analyzeCglx(d)
+//	analyzeCglx6(d)	
 //	analyzeMeas5(d)
-	messM(d)
+//	messM(d)
+//	analyzeKeyCh(d)
+	analyzeLine(d)	
 	log.Printf("%q %v", d.Header.Name, &d.Header)
+}
+
+func analyzeLine(d *Data) {
+	for i, l  := range d.Lines {
+		fmt.Printf("linesize %d %v\n", i, l.VarSize)
+		fmt.Printf(" %v\n", l.VarData)
+	}
+}
+
+func analyzeKeyCh(d *Data) {
+	for i, m  := range d.Measures {
+		for j, e  := range m.Elems {
+			if e.GetType() == 32 {
+				log.Printf("meas %d elt %d staff %d", i, j,
+					e.GetStaff())
+			}
+		}
+	}
 }
 
 func analyzeCglx(d *Data) {
@@ -401,7 +437,7 @@ func analyzeCglx(d *Data) {
 		}
 	}
 	log.Printf("looking for key")
-	for j := 22; j < 242; j++ {
+	for j := 0; j < 242; j++ {
 		if len(occs[j]) == 1 {
 			continue
 		}
@@ -429,7 +465,7 @@ func analyzeMeas5(d *Data) {
 	for _, m:= range d.Measures {
 		for _, e := range m.Elems {
 			sz := e.Sz()
-			id := int(e.GetRaw()[5])
+			id := int(e.GetRaw()[2])
 			e := sizes[id]
 			if e == nil {
 				e = map[int]int{}
