@@ -63,6 +63,9 @@ type MeasElemBase struct {
 	Tick  uint16 `offset:"0"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
+
+	// not sure what kind of ID this is.
+	Id byte `offset:"5"`
 }
 
 func (n *MeasElemBase) GetRaw() []byte {
@@ -122,7 +125,6 @@ type Rest struct {
 }
 
 func readElem(c []byte, off int) (e MeasElem) {
-	// ugh - how to determine the type for each element?
 	switch len(c) {
 	case 28:
 		e = &Note{} 
@@ -175,6 +177,11 @@ func (m *Measure) ReadElems() {
 type CGLX struct {
 	Offset int
 	Raw []byte `want:"CGLX" fixed:"242"`
+	Name [10]byte `offset:"13"`
+
+	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
+	// 6=F_8
+	Clef byte `offset:"185"`
 }
 
 type CGLXTrailer struct {
@@ -344,22 +351,56 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
+//	analyzeTags(content)
 	d := &Data{}
 	err = readData(content, d)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
+	analyzeCglx(d)
+//	analyzeMeas5(d)
+	log.Println(&d.Header)
+}
+
+func analyzeCglx(d *Data) {
+	occs := make([]map[int]int, 242)
+	for i := 0; i < 242; i++ {
+		occs[i] = make(map[int]int)
+	}
 	
-	fmt.Printf("meas 0\n")
-	type Pair struct { A,B int }
-	sizes := map[Pair]bool{}
-	for _, m:= range d.Measures {
-		for _, e := range m.Elems {
-			sizes[Pair{e.Sz(), int(e.GetRaw()[5])}] = true
+	for _, c := range d.Cglx {
+		for i := range c.Raw {
+			occs[i][int(c.Raw[i])]++
 		}
 	}
-	fmt.Println(sizes)
-	//messM(d)
+	for i := 0; i < 242; i++ {
+		if len(occs[i]) == 3 {
+			fmt.Printf("%d: %d diff %v\n", i, len(occs[i]), occs[i])
+		}
+	}
+	fmt.Printf("len cg %d\n", len(d.Cglx))
+	for i, c := range d.Cglx {
+		fmt.Printf("%d %q: %d\n", i,c.Name, c.Raw[185])
+	}
+	// 185
+	// 218
+}
+
+func analyzeMeas5(d *Data) {
+	sizes := map[int]map[int]int{}
+	for _, m:= range d.Measures {
+		for _, e := range m.Elems {
+			sz := e.Sz()
+			id := int(e.GetRaw()[5])
+			e := sizes[id]
+			if e == nil {
+				e = map[int]int{}
+				sizes[id] = e
+			}
+			e[sz]++
+		}
+	}
+	fmt.Println(len(sizes),sizes)
 }
 
 func messM(d *Data) {
