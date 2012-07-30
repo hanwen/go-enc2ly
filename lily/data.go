@@ -58,15 +58,25 @@ func (p *Pitch) String() string {
 	return n
 }
 
-type Note struct  {
-	Pitch
+type Chord struct  {
+	Pitch []Pitch
 	Duration
 }
 
-func (p *Note) String() string {
+func (p *Chord) String() string {
 	d := &p.Duration
-	fmt.Println(d)
-	return p.Pitch.String() + d.String()
+	pstr := "s"
+	if len(p.Pitch) > 1 {
+		pstr = p.Pitch[0].String()
+	} else if len(p.Pitch) == 1 {
+		pitches := []string{}
+		for _, p := range p.Pitch {
+			pitches = append(pitches, p.String())
+		}
+		pstr = "<" + strings.Join(pitches, " ") + ">"
+	}
+	
+	return pstr + d.String()
 }
 
 type Rest struct  {
