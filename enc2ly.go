@@ -147,7 +147,17 @@ type Note struct {
 	// 1=sharp, 2=flat, 3=natural, 4=dsharp, 5=dflat
 	// used as offset in font. Using 6 gives a longa symbol
 	AlterationGlyph byte `offset:"21"`
+}
 
+func (n *Note) Alteration() int {
+	switch n.AlterationGlyph {
+	case 1: return 1
+	case 2: return -1
+	case 3: return 0
+	case 4: return 2
+	case 5: return -2
+	}
+	return 0
 }
 
 func (o *Note) GetTypeName() string {
