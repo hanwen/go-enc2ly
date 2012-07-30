@@ -135,13 +135,19 @@ func (n *MeasElemBase) GetOffset() int {
 
 type Note struct {
 	MeasElemBase
-	XOffset       byte `offset:"10"`
-
 	// 4 = 8th, 3=quarter, 2=half, etc.
 	FaceValue     byte `offset:"5"`
+
+	// is 24 for triplet.
+	//Tuplet  byte  `offset:"6"`
 	
+	XOffset       byte `offset:"10"`
+
 	// ledger below staff = 0; top line = 10
 	Position        int8 `offset:"12"`
+
+	// 50 = (3 << 4) | 2 => 2/3 for triplet.
+	Tuplet  byte  `offset:"13"`
 
 	// 25 = same pos as head, 29 for dot 1 position above head
 	DotControl byte `offset:"14"`
@@ -236,11 +242,13 @@ func (o *Beam) GetTypeName() string {
 
 type Rest struct {
 	MeasElemBase
-	
+
+	// see Note for more explanation. 
 	FaceValue     byte `offset:"5"`
-	DotControl byte `offset:"14"`
 	XOffset    byte `offset:"10"`
 	Position int8 `offset:"12"`
+	Tuplet   byte `offset:"13"`
+	DotControl byte `offset:"14"`
 	DurationTicks   uint16 `offset:"16"`
 }
 
@@ -474,14 +482,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-	Convert(d)
+//	Convert(d)
 	//	analyzeStaff(d)
 	//	messM(d)
 	//mess(d)
 	//	analyzeKeyCh(d)
 	//analyzeAll(d)
 	//	analyzeStaff(d)
-	//	analyzeMeasStaff(d)
+		analyzeMeasStaff(d)
 	//	analyzeLine(d)	
 }
 
@@ -512,8 +520,8 @@ func analyzeStaff(d *Data) {
 }
 
 func analyzeMeasStaff(d *Data) {
-	for _, e  := range d.Measures[0].Elems {
-		if e.GetStaff() == 0{
+	for _, e  := range d.Measures[9].Elems {
+		if e.GetStaff() == 4 {
 			fmt.Printf("%+v\n", e)
 		}
 	}
