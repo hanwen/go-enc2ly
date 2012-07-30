@@ -11,12 +11,12 @@ import (
 	"strconv"
 )
 
-func (h *Header) FillFirstCgxl(cglx *CGLX) {
+func (h *Header) FillFirstCgxl(staff *Staff) {
 	raw := h.Raw[189:]
-	cglx.Raw = raw
-	cglx.Offset = 189
+	staff.Raw = raw
+	staff.Offset = 189
 		
-	FillFields(raw, cglx)
+	FillFields(raw, staff)
 }
 
 type Header struct {
@@ -25,7 +25,7 @@ type Header struct {
 
 	LineCount      int16 `offset:"0x2e"`
 	PageCount      int16 `offset:"0x30"`
-	CglxCount      byte  `offset:"0x32"`
+	StaffCount      byte  `offset:"0x32"`
 	StaffPerSystem byte  `offset:"0x33"`
 	MeasureCount   int16 `offset:"0x34"`
 }
@@ -58,7 +58,7 @@ type Measure struct {
 	Elems []MeasElem
 }
 
-type CGLX struct {
+type Staff struct {
 	Offset int
 	Raw []byte `want:"CGLX" fixed:"242"`
 	Name [10]byte `offset:"13"`
@@ -84,7 +84,7 @@ type CGLX struct {
 
 }
 
-type CGLXTrailer struct {
+type StaffTrailer struct {
 	Offset int
 	Raw []byte `want:"CGLX" fixed:"5"`
 }
@@ -355,15 +355,15 @@ func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 }
 
 func (h *Header) String() string {
-	return fmt.Sprintf("Systems %d PAGE %d CGLX %d staffpersys %d MEAS %d",
-		h.LineCount, h.PageCount, h.CglxCount, h.StaffPerSystem,
+	return fmt.Sprintf("Systems %d PAGE %d Staff %d staffpersys %d MEAS %d",
+		h.LineCount, h.PageCount, h.StaffCount, h.StaffPerSystem,
 		h.MeasureCount)
 }
 
 type Data struct {
 	Raw      []byte
 	Header   Header
-	Cglx     []CGLX
+	Staff     []Staff
 	Pages    []Page
 	Lines    []Line
 	Measures []Measure
@@ -373,12 +373,12 @@ func readData(c []byte, f *Data) error {
 	f.Raw = c
 	off := 0
 	off += ReadTaggedBlock(c, off, &f.Header)
-	f.Cglx = make([]CGLX, f.Header.CglxCount)
-	f.Header.FillFirstCgxl(&f.Cglx[0])
-	for i := 1; i < int(f.Header.CglxCount); i++ {
-		off += ReadTaggedBlock(c, off, &f.Cglx[i])
+	f.Staff = make([]Staff, f.Header.StaffCount)
+	f.Header.FillFirstCgxl(&f.Staff[0])
+	for i := 1; i < int(f.Header.StaffCount); i++ {
+		off += ReadTaggedBlock(c, off, &f.Staff[i])
 	}
-	trailer := CGLXTrailer{}
+	trailer := StaffTrailer{}
 	off += ReadTaggedBlock(c, off, &trailer)
 	f.Pages = make([]Page, f.Header.PageCount)
 	for i := 0; i < int(f.Header.PageCount); i++ {
@@ -475,7 +475,7 @@ func main() {
 		log.Fatalf("readData %v", err)
 	}
 	Convert(d)
-	//	analyzeCglx(d)
+	//	analyzeStaff(d)
 	//	messM(d)
 	//mess(d)
 	//	analyzeKeyCh(d)
@@ -530,13 +530,13 @@ func analyzeKeyCh(d *Data) {
 	}
 }
 
-func analyzeCglx(d *Data) {
+func analyzeStaffHeader(d *Data) {
 	occs := make([]map[int]int, 242)
 	for i := 0; i < 242; i++ {
 		occs[i] = make(map[int]int)
 	}
 	
-	for _, c := range d.Cglx {
+	for _, c := range d.Staff {
 		for i := range c.Raw {
 			occs[i][int(c.Raw[i])]++
 		}
@@ -547,7 +547,7 @@ func analyzeCglx(d *Data) {
 			continue
 		}
 		log.Println("values", j, len(occs[j]))
-		for _, c := range d.Cglx {
+		for _, c := range d.Staff {
 			fmt.Printf("%d ", c.Raw[j])
 		}
 		fmt.Printf("\n")

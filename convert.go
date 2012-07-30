@@ -15,7 +15,7 @@ func Convert(data *Data) {
 	}
 
 	for idx, elems := range staves {
-		seq := ConvertStaff(elems, data.Cglx[idx].Clef)
+		seq := ConvertStaff(elems, data.Staff[idx].Clef)
 		fmt.Printf("staff%d = %v\n", idx, seq)
 	}
 }
