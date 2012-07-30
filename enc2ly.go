@@ -474,6 +474,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
+	Convert(d)
 	//	analyzeCglx(d)
 	//	messM(d)
 	//mess(d)

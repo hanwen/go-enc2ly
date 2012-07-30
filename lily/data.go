@@ -1,9 +1,10 @@
 package lily
 import (
 	"fmt"
+	"log"
 	"strings"
 )
-
+var _ = log.Printf
 type Elem interface {
 	String() string
 }
@@ -40,6 +41,23 @@ type Pitch struct  {
 	Alteration int
 }
 
+func (p *Pitch) SemitonePitch() int {
+	p.Normalize()
+	scale := []int{0, 2, 4, 5, 7, 9, 11}
+	return p.Octave * 12 + scale[p.Notename] + p.Alteration
+}
+
+func (p *Pitch) Normalize() {
+	for p.Notename < 0 {
+		p.Notename += 7
+		p.Octave--
+	}
+	for p.Notename >= 7 {
+		p.Notename -= 7
+		p.Octave++
+	}
+}
+
 func (p *Pitch) String() string {
 	names := []string{"c", "d", "e", "f", "g", "a", "b"}
 	altsuffix := []string{"eses", "es", "", "is", "isis"}
@@ -66,9 +84,9 @@ type Chord struct  {
 func (p *Chord) String() string {
 	d := &p.Duration
 	pstr := "s"
-	if len(p.Pitch) > 1 {
+	if len(p.Pitch) == 1 {
 		pstr = p.Pitch[0].String()
-	} else if len(p.Pitch) == 1 {
+	} else if len(p.Pitch) > 1 {
 		pitches := []string{}
 		for _, p := range p.Pitch {
 			pitches = append(pitches, p.String())
@@ -114,3 +132,4 @@ type Par struct {
 func (s *Par) String() string {
 	return fmt.Sprintf("<< %s >>", s.Compound.String())
 }
+
