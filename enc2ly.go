@@ -11,11 +11,12 @@ import (
 	"strconv"
 )
 
-type FirstStaff struct {
-	// First staff is in the header block.
-	Name [10]byte `offset:"202"`
-
-	// Is exactly the cglx block?
+func (h *Header) FillFirstCgxl(cglx *CGLX) {
+	raw := h.Raw[189:]
+	cglx.Raw = raw
+	cglx.Offset = 189
+		
+	FillFields(raw, cglx)
 }
 
 type Header struct {
@@ -27,7 +28,6 @@ type Header struct {
 	CglxCount      byte  `offset:"0x32"`
 	StaffPerSystem byte  `offset:"0x33"`
 	MeasureCount   int16 `offset:"0x34"`
-	FirstStaff
 }
 
 type Page struct {
@@ -63,16 +63,25 @@ type CGLX struct {
 	Raw []byte `want:"CGLX" fixed:"242"`
 	Name [10]byte `offset:"13"`
 
+	// 174, 175, 
+	
+	// In semitones; b-flat clar = -2
+	Transposition int8 `offset:"178"`
+
+	Unknown byte `offset:"181"`
+	
 	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
 	// 6=F_8
 	Clef byte `offset:"185"`
 
-	// In semitones; b-flat clar = -2
-	Transposition int8 `offset:"178"`
+	// 186 = 1 for piano staff. ?
 	
 	// 193 - 200: MIDI channel (repeated?)
 	// 201 - 208: MIDI program (repeated?)
 	// 209 - 216: MIDI volume (repeated?)
+
+	// 218 ?
+
 }
 
 type CGLXTrailer struct {
@@ -81,6 +90,7 @@ type CGLXTrailer struct {
 }
 
 type MeasElem interface {
+	GetTick() int
 	GetRaw() []byte
 	GetStaff() int
 	GetOffset() int
@@ -101,6 +111,10 @@ type MeasElemBase struct {
 
 func (n *MeasElemBase) GetRaw() []byte {
 	return n.Raw
+}
+
+func (n *MeasElemBase) GetTick() int {
+	return int(n.Tick)
 }
 
 func (n *MeasElemBase) GetType() int {
@@ -223,6 +237,7 @@ func (o *Beam) GetTypeName() string {
 type Rest struct {
 	MeasElemBase
 	
+	FaceValue     byte `offset:"5"`
 	DotControl byte `offset:"14"`
 	XOffset    byte `offset:"10"`
 	Position int8 `offset:"12"`
@@ -358,8 +373,9 @@ func readData(c []byte, f *Data) error {
 	f.Raw = c
 	off := 0
 	off += ReadTaggedBlock(c, off, &f.Header)
-	f.Cglx = make([]CGLX, f.Header.CglxCount-1)
-	for i := 0; i < int(f.Header.CglxCount-1); i++ {
+	f.Cglx = make([]CGLX, f.Header.CglxCount)
+	f.Header.FillFirstCgxl(&f.Cglx[0])
+	for i := 1; i < int(f.Header.CglxCount); i++ {
 		off += ReadTaggedBlock(c, off, &f.Cglx[i])
 	}
 	trailer := CGLXTrailer{}
@@ -460,13 +476,12 @@ func main() {
 	}
 	//	analyzeCglx(d)
 	//	messM(d)
-	mess(d)
+	//mess(d)
 	//	analyzeKeyCh(d)
-	analyzeAll(d)
+	//analyzeAll(d)
 	//	analyzeStaff(d)
 	//	analyzeMeasStaff(d)
 	//	analyzeLine(d)	
-	log.Printf("%q %v", d.Header.Name, &d.Header)
 }
 
 func analyzeLine(d *Data) {
@@ -477,12 +492,10 @@ func analyzeLine(d *Data) {
 }
 
 func analyzeAll(d *Data) {
-	for i, m := range d.Measures[:1] {
+	for i, m := range d.Measures[:] {
 		fmt.Printf("meas %d\n", i)
 		for _, e  := range m.Elems {
-			if e.GetTypeName() == "Slur" {
-				fmt.Printf("%+v\n", e)
-			}
+			fmt.Printf("%+v\n", e)
 		}
 	}
 }
