@@ -14,6 +14,8 @@ import (
 type FirstStaff struct {
 	// First staff is in the header block.
 	Name [10]byte `offset:"202"`
+
+	// Is exactly the cglx block?
 }
 
 type Header struct {
@@ -56,23 +58,45 @@ type Measure struct {
 	Elems []MeasElem
 }
 
+type CGLX struct {
+	Offset int
+	Raw []byte `want:"CGLX" fixed:"242"`
+	Name [10]byte `offset:"13"`
+
+	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
+	// 6=F_8
+	Clef byte `offset:"185"`
+
+	// In semitones; b-flat clar = -2
+	Transposition int8 `offset:"178"`
+	
+	// 193 - 200: MIDI channel (repeated?)
+	// 201 - 208: MIDI program (repeated?)
+	// 209 - 216: MIDI volume (repeated?)
+}
+
+type CGLXTrailer struct {
+	Offset int
+	Raw []byte `want:"CGLX" fixed:"5"`
+}
+
 type MeasElem interface {
 	GetRaw() []byte
 	GetStaff() int
 	GetOffset() int
 	Sz() int
 	GetType() int
+	GetTypeName() string
 }
 
+// Voice (1-8) should be somewhere too.
 type MeasElemBase struct {
 	Raw []byte
 	Offset int
 	Tick  uint16 `offset:"0"`
+	Type  byte `offset:"2"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
-	Type  byte `offset:"2"`
-
-	// not sure what kind of ID this is.
 }
 
 func (n *MeasElemBase) GetRaw() []byte {
@@ -98,28 +122,54 @@ func (n *MeasElemBase) GetOffset() int {
 type Note struct {
 	MeasElemBase
 	XOffset       byte `offset:"10"`
-	
-	// type off 5: 204=?, 133=?, 1 = note, 30 = ? , 2=?
-	DurationTicks   uint16 `offset:"16"`
 
+	// 4 = 8th, 3=quarter, 2=half, etc.
+	FaceValue     byte `offset:"5"`
+	
 	// ledger below staff = 0; top line = 10
 	Position        int8 `offset:"12"`
 
+	// 25 = same pos as head, 29 for dot 1 position above head
+	DotControl byte `offset:"14"`
+
+	// Does not include staff wide transposition setting; 60 = central C.
+	SemitonePitch   byte `offset:"15"`
+	
+	DurationTicks   uint16 `offset:"16"`
+
+	// Not sure - but encore defaults to 64; and all have this?
+	Velocity byte `offset:"19"`
+	
+	// 128 = stem-down bit
+	// 7 = unbeamed?
+	Options byte `offset:"20"`
+	
 	// 1=sharp, 2=flat, 3=natural, 4=dsharp, 5=dflat
 	// used as offset in font. Using 6 gives a longa symbol
 	AlterationGlyph byte `offset:"21"`
-	SemitonePitch   byte `offset:"15"`
+
 }
 
+func (o *Note) GetTypeName() string {
+	return "Note"
+}
 
 type KeyChange struct {
 	MeasElemBase
 	NewKey byte  `offset:"5"`
 	OldKey byte  `offset:"10"`
-	
 }
+
+func (o *KeyChange) GetTypeName() string {
+	return "KeyChange"
+}
+
 type Other struct {
 	MeasElemBase
+}
+
+func (o *Other) GetTypeName() string {
+	return "Other"
 }
 
 type Script struct {
@@ -127,10 +177,19 @@ type Script struct {
 	XOff byte `offset:"10"`
 }
 
+func (o *Script) GetTypeName() string {
+	return "Script"
+}
+
+
 type Beam struct {
 	MeasElemBase
 	LeftPos int8 `offset:"18"` 
 	RightPos int8 `offset:"19"` 
+}
+
+func (o *Beam) GetTypeName() string {
+	return "Beam"
 }
 
 type Rest struct {
@@ -140,6 +199,10 @@ type Rest struct {
 	XOffset    byte `offset:"10"`
 	Position int8 `offset:"12"`
 	DurationTicks   uint16 `offset:"16"`
+}
+
+func (o *Rest) GetTypeName() string {
+	return "Rest"
 }
 
 func readElem(c []byte, off int) (e MeasElem) {
@@ -172,20 +235,6 @@ func readElem(c []byte, off int) (e MeasElem) {
 }
 
 
-
-func (n *Beam) Sz() int {
-	return len(n.Raw)
-}
-
-func (n *Beam) GetOffset() int {
-	return int(n.Offset)
-}
-
-func (n *Beam) GetStaff() int {
-	return int(n.Staff)
-}
-
-
 var endMarker = string([]byte{255,255})
 
 func (m *Measure) ReadElems() {
@@ -202,25 +251,6 @@ func (m *Measure) ReadElems() {
 	if string(r) != endMarker {
 		log.Fatalf("end marker not found")
 	}
-}
-
-type CGLX struct {
-	Offset int
-	Raw []byte `want:"CGLX" fixed:"242"`
-	Name [10]byte `offset:"13"`
-
-	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
-	// 6=F_8
-	Clef byte `offset:"185"`
-
-	// 193 - 200: IDs 1..cglx (repeated?)
-	// 201 - 208: (repeated?)
-	// 209 - 216: (repeated?)
-}
-
-type CGLXTrailer struct {
-	Offset int
-	Raw []byte `want:"CGLX" fixed:"5"`
 }
 
 func FillBlock(raw []byte, offset int, dest interface{}) {
@@ -398,12 +428,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-//	analyzeCglx(d)
-//	analyzeCglx6(d)	
-//	analyzeMeas5(d)
+	analyzeCglx(d)
 //	messM(d)
 //	analyzeKeyCh(d)
-	analyzeLine(d)	
+//	analyzeStaff(d)
+//	analyzeLine(d)	
 	log.Printf("%q %v", d.Header.Name, &d.Header)
 }
 
@@ -411,6 +440,24 @@ func analyzeLine(d *Data) {
 	for i, l  := range d.Lines {
 		fmt.Printf("linesize %d %v\n", i, l.VarSize)
 		fmt.Printf(" %v\n", l.VarData)
+	}
+}
+
+func analyzeStaff(d *Data) {
+	for _, m := range  d.Measures {
+		for _, e  := range m.Elems {
+			if e.GetStaff() == 0 && e.GetTypeName() == "Note"{
+				fmt.Printf("%+v\n", e)
+			}
+		}
+	}
+}
+
+func analyzeMeasStaff(d *Data) {
+	for _, e  := range d.Measures[0].Elems {
+		if e.GetStaff() == 0 && e.GetTypeName() == "Note"{
+			fmt.Printf("%+v\n", e)
+		}
 	}
 }
 
@@ -454,27 +501,6 @@ func analyzeCglx(d *Data) {
 		}
 	}
 
-	fmt.Printf("len cg %d\n", len(d.Cglx))
-	for i, c := range d.Cglx {
-		fmt.Printf("%d %q: %d key %d\n", i,c.Name, c.Raw[185], c.Raw[186])
-	}
-}
-
-func analyzeMeas5(d *Data) {
-	sizes := map[int]map[int]int{}
-	for _, m:= range d.Measures {
-		for _, e := range m.Elems {
-			sz := e.Sz()
-			id := int(e.GetRaw()[2])
-			e := sizes[id]
-			if e == nil {
-				e = map[int]int{}
-				sizes[id] = e
-			}
-			e[sz]++
-		}
-	}
-	fmt.Println(len(sizes),sizes)
 }
 
 func messM(d *Data) {
@@ -483,10 +509,6 @@ func messM(d *Data) {
 
 	d2 := Data{}
 	readData(raw, &d2)
-	
-	for _, m:= range d2.Measures[48].Elems {
-		fmt.Printf("%+v\n", m)
-	}
 	
 	err := ioutil.WriteFile("mess.enc", raw, 0644)
 	if err != nil {
