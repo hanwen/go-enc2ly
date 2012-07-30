@@ -164,6 +164,24 @@ func (o *Note) GetTypeName() string {
 	return "Note"
 }
 
+type Slur struct {
+	MeasElemBase
+	
+	// 33 = slur, 16=8va, ... ?
+	SlurType  byte `offset:"5"`
+	LeftX byte `offset:"10"`
+	LeftPosition byte `offset:"12"`
+	MiddleX byte `offset:"14"`
+	MiddlePosition byte `offset:"16"`
+	RightX byte `offset: "20"`
+	RightPosition byte `offset:"22"`
+}
+
+
+func (o *Slur) GetTypeName() string {
+	return "Slur"
+}
+
 type KeyChange struct {
 	MeasElemBase
 	NewKey byte  `offset:"5"`
@@ -191,7 +209,7 @@ func (o *Script) GetTypeName() string {
 	return "Script"
 }
 
-
+// Also used for tuplet bracket.
 type Beam struct {
 	MeasElemBase
 	LeftPos int8 `offset:"18"` 
@@ -227,13 +245,15 @@ func readElem(c []byte, off int) (e MeasElem) {
 		fallthrough
 	case 128:
 		e = &Rest{}
-
+	case 64:
+		e = &Beam {}
 	case 80:
 		switch c[3] {
 		case 16:
 			e = &Script{}
 		case 86:
 		case 28:
+			e = &Slur{}
 		}
 	}
 	if e == nil {
@@ -432,17 +452,20 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-//	analyzeTags(content)
+	//	analyzeTags(content)
 	d := &Data{}
 	err = readData(content, d)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-	analyzeCglx(d)
-//	messM(d)
-//	analyzeKeyCh(d)
-//	analyzeStaff(d)
-//	analyzeLine(d)	
+	//	analyzeCglx(d)
+	//	messM(d)
+	mess(d)
+	//	analyzeKeyCh(d)
+	analyzeAll(d)
+	//	analyzeStaff(d)
+	//	analyzeMeasStaff(d)
+	//	analyzeLine(d)	
 	log.Printf("%q %v", d.Header.Name, &d.Header)
 }
 
@@ -450,6 +473,17 @@ func analyzeLine(d *Data) {
 	for i, l  := range d.Lines {
 		fmt.Printf("linesize %d %v\n", i, l.VarSize)
 		fmt.Printf(" %v\n", l.VarData)
+	}
+}
+
+func analyzeAll(d *Data) {
+	for i, m := range d.Measures[:1] {
+		fmt.Printf("meas %d\n", i)
+		for _, e  := range m.Elems {
+			if e.GetTypeName() == "Slur" {
+				fmt.Printf("%+v\n", e)
+			}
+		}
 	}
 }
 
@@ -465,7 +499,7 @@ func analyzeStaff(d *Data) {
 
 func analyzeMeasStaff(d *Data) {
 	for _, e  := range d.Measures[0].Elems {
-		if e.GetStaff() == 0 && e.GetTypeName() == "Note"{
+		if e.GetStaff() == 0{
 			fmt.Printf("%+v\n", e)
 		}
 	}
@@ -529,23 +563,20 @@ func messM(d *Data) {
 
 func mess(d *Data) {
 	fmt.Printf("mess\n")
-	for _, m:= range d.Measures[0].Elems {
-		fmt.Printf("%+v\n", m)
-	}
-
 	raw := make([]byte, len(d.Raw))
 	copy(raw, d.Raw)
 
-	raw[d.Measures[0].Elems[0].GetOffset() + 14] = 0x81
+	for _, m := range d.Measures[:1] {
+		for _, e  := range m.Elems {
+			if e.GetTypeName() == "Slur" {
+				raw[e.GetOffset() + 5] /= 2
+			}
+		}
+	}
 
 	d2 := Data{}
 	readData(raw, &d2)
-	
-
 	fmt.Printf("messed\n")
-	for _, m:= range d2.Measures[0].Elems {
-		fmt.Printf("%+v\n", m)
-	}
 	
 	err := ioutil.WriteFile("mess.enc", raw, 0644)
 	if err != nil {
