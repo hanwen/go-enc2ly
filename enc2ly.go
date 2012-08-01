@@ -37,11 +37,42 @@ type Page struct {
 	Raw []byte `want:"PAGE" fixed:"34"`
 }
 
+type LineStaffData struct {
+	Clef byte `offset:"1"`
+	Key  byte `offset:"2"`
+	PageIdx byte `offset:"3"`
+	StaffType byte `offset:"7"`
+	StaffIdx byte `offset:"8"`
+}
+
+type LineData struct {
+	MeasureCount byte `offset:"12"`
+}
+
 type Line struct {
 	Offset int
 	Raw     []byte `want:"LINE" fixed:"8"`
 	VarSize uint32  `offset:"0x4"`
 	VarData []byte
+	LineData
+	Staffs []LineStaffData
+}
+
+func (l *Line) ReadStaffs() {
+	d := l.VarData[26:]
+	if len(d) % 30 != 0 {
+		log.Fatalf("must be multiple of 30: %d", len(d))
+	}
+	i := 0 
+	for len(d) > 0 {
+		staffRaw := d[:30]
+		d = d[30:]
+		fmt.Printf("%2d %v\n", i, staffRaw)
+		i++
+		lsd := LineStaffData{}
+		FillFields(staffRaw, &lsd)
+		l.Staffs = append(l.Staffs, lsd)
+	}
 }
 
 type Measure struct {
@@ -414,6 +445,8 @@ func readData(c []byte, f *Data) error {
 		off += ReadTaggedBlock(c, off, l)
 		l.VarData = c[off:off+int(l.VarSize)]
 		off += int(l.VarSize)
+		FillFields(l.VarData, &l.LineData)
+		l.ReadStaffs()
 	}
 
 	f.Measures = make([]Measure, f.Header.MeasureCount)
@@ -492,12 +525,12 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	analyzeTags(content)
 	d := &Data{}
 	err = readData(content, d)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
+//	analyzeTags(content)
 //	Convert(d)
 	//	analyzeStaff(d)
 	//	messM(d)
@@ -505,16 +538,16 @@ func main() {
 	//	analyzeKeyCh(d)
 	//analyzeAll(d)
 	//	analyzeStaff(d)
-		analyzeStaffdata(d)
+//		analyzeStaffdata(d)
 //		analyzeStaffHeader(d)	
 	//	analyzeMeasStaff(d)
-	//	analyzeLine(d)	
+//		analyzeLine(d)	
 }
 
 func analyzeLine(d *Data) {
 	for i, l  := range d.Lines {
 		fmt.Printf("linesize %d %v\n", i, l.VarSize)
-		fmt.Printf(" %v\n", l.VarData)
+		fmt.Printf(" %+v, %+v\n", l.LineData, l.Staffs)
 	}
 }
 
