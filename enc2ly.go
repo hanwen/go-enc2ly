@@ -109,6 +109,8 @@ type MeasElemBase struct {
 	Raw []byte
 	Offset int
 	Tick  uint16 `offset:"0"`
+
+	// type << 4 | voice
 	Type  byte `offset:"2"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
@@ -141,11 +143,12 @@ func (n *MeasElemBase) GetOffset() int {
 type Note struct {
 	MeasElemBase
 	// 4 = 8th, 3=quarter, 2=half, etc.
+	//
+	// hi nibble has notehead type.
 	FaceValue     byte `offset:"5"`
 
-	// is 24 for triplet.
-	//Tuplet  byte  `offset:"6"`
-	
+	// must use masking?
+	Grace  byte `offset:"6"`
 	XOffset       byte `offset:"10"`
 
 	// ledger below staff = 0; top line = 10
@@ -171,7 +174,11 @@ type Note struct {
 	
 	// 1=sharp, 2=flat, 3=natural, 4=dsharp, 5=dflat
 	// used as offset in font. Using 6 gives a longa symbol
+	// alteration is in low nibble.
 	AlterationGlyph byte `offset:"21"`
+
+	ArticulationUp byte `offset:"24"`
+	ArticulationDown byte `offset:"26"`
 }
 
 func (n *Note) Alteration() int {
@@ -262,20 +269,16 @@ func (o *Rest) GetTypeName() string {
 }
 
 func readElem(c []byte, off int) (e MeasElem) {
-	switch c[2] {
-	case 144:
-		fallthrough
-	case 145:
+	switch (c[2] >> 4) {
+	case 9:
 		e = &Note{}
-	case 32:
+	case 1:
 		e = &KeyChange{}
-	case 48:
-		fallthrough
-	case 128:
+	case 8:
 		e = &Rest{}
-	case 64:
+	case 4:
 		e = &Beam {}
-	case 80:
+	case 5:
 		switch c[3] {
 		case 16:
 			e = &Script{}
