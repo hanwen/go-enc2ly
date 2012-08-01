@@ -11,23 +11,25 @@ import (
 	"strconv"
 )
 
-func (h *Header) FillFirstCgxl(staff *Staff) {
-	raw := h.Raw[189:]
-	staff.Raw = raw
-	staff.Offset = 189
-		
-	FillFields(raw, staff)
-}
-
 type Header struct {
 	Offset     int
-	Raw []byte `want:"SCOW" fixed:"431"`
+	Raw []byte `want:"SCOW" fixed:"436"`
 
 	LineCount      int16 `offset:"0x2e"`
 	PageCount      int16 `offset:"0x30"`
-	StaffCount      byte  `offset:"0x32"`
+	StaffCount     byte  `offset:"0x32"`
 	StaffPerSystem byte  `offset:"0x33"`
 	MeasureCount   int16 `offset:"0x34"`
+}
+
+func (h *Header) FillFirstStaff(staff *Staff) {
+	raw := h.Raw[0xc2:]
+	staff.Raw = raw
+	staff.Offset = 0xc2
+	staff.VarData = raw[8:]
+	staff.VarSize = uint32(len(staff.VarData))
+	
+	FillFields(raw[8:], &staff.StaffData)
 }
 
 type Page struct {
@@ -38,7 +40,7 @@ type Page struct {
 type Line struct {
 	Offset int
 	Raw     []byte `want:"LINE" fixed:"8"`
-	VarSize int32  `offset:"0x4"`
+	VarSize uint32  `offset:"0x4"`
 	VarData []byte
 }
 
@@ -60,33 +62,36 @@ type Measure struct {
 
 type Staff struct {
 	Offset int
-	Raw []byte `want:"CGLX" fixed:"242"`
-	Name [10]byte `offset:"13"`
+
+	// Sometimes TK00, sometimes TK01
+	Raw []byte `want:"TK0" fixed:"8"`
+	VarSize uint32 `offset:"4"`
+	VarData []byte
+
+	StaffData
+}
+
+type StaffData struct {
+	Name [10]byte `offset:"8"`
 
 	// 174, 175, 
 	
 	// In semitones; b-flat clar = -2
-	Transposition int8 `offset:"178"`
+	Transposition int8 `offset:"165"`
 
-	Unknown byte `offset:"181"`
-	
 	// 0 = G, 1 = F, 2 = C(middle), 3=C(tenor), 4=G^8, 5=G_8,
 	// 6=F_8
-	Clef byte `offset:"185"`
+	Clef byte `offset:"172"`
 
-	// 186 = 1 for piano staff. ?
+	// 181 = 1 for piano staff. ?
 	
-	// 193 - 200: MIDI channel (repeated?)
-	// 201 - 208: MIDI program (repeated?)
-	// 209 - 216: MIDI volume (repeated?)
+	// 180 - 187: MIDI channel (repeated?)
+	// 188 - 195: MIDI program (repeated?)
+	// 196 - 203: MIDI volume (repeated?)
 
-	// 218 ?
-
-}
-
-type StaffTrailer struct {
-	Offset int
-	Raw []byte `want:"CGLX" fixed:"5"`
+	// 164 ?
+	
+	// 205 ?
 }
 
 type MeasElem interface {
@@ -331,7 +336,10 @@ func FillFields(raw []byte, dest interface{}) {
 		}
 
 		off, _ := strconv.ParseInt(offStr, 0, 64)
-
+		if off >= int64(len(raw)) {
+			continue
+		}
+		
 		z := f.Addr().Interface()
 		binary.Read(bytes.NewBuffer(raw[off:]), binary.LittleEndian, z)
 	}
@@ -355,8 +363,8 @@ func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	rawAddr := v.FieldByName("Raw").Addr().Interface().(*[]byte)
 	raw := c[off:off+int(sz)]
 	*rawAddr = raw
-	if string(raw[:4]) != want {
-		log.Fatalf("Got tag %q want %q - %q", raw[:4], want, raw)
+	if string(raw[:len(want)]) != want {
+		log.Fatalf("Got tag %q want %q - %q", raw[:len(want)], want, raw)
 	}
 	FillBlock(raw, off, dest)
 	return int(sz)
@@ -382,12 +390,16 @@ func readData(c []byte, f *Data) error {
 	off := 0
 	off += ReadTaggedBlock(c, off, &f.Header)
 	f.Staff = make([]Staff, f.Header.StaffCount)
-	f.Header.FillFirstCgxl(&f.Staff[0])
-	for i := 1; i < int(f.Header.StaffCount); i++ {
-		off += ReadTaggedBlock(c, off, &f.Staff[i])
+	f.Header.FillFirstStaff(&f.Staff[0])
+	for i := 1; i < len(f.Staff); i++ {
+		s := &f.Staff[i]
+		off += ReadTaggedBlock(c, off, s)
+		sz := int(s.VarSize) - 8
+		s.VarData = c[off:off+sz]
+		off += int(sz)
+		FillFields(s.VarData, &s.StaffData)
 	}
-	trailer := StaffTrailer{}
-	off += ReadTaggedBlock(c, off, &trailer)
+
 	f.Pages = make([]Page, f.Header.PageCount)
 	for i := 0; i < int(f.Header.PageCount); i++ {
 		off += ReadTaggedBlock(c, off, &f.Pages[i])
@@ -415,7 +427,8 @@ func readData(c []byte, f *Data) error {
 
 func isH(x []byte) bool {
 	for i := 0; i < 4; i++ {
-		if !('A' <= x[i] && x[i] <= 'Z') {
+		if !(('0' <= x[i] && x[i] <= '9') ||
+			('A' <= x[i] && x[i] <= 'Z')) {
 			return false
 		}
 	}
@@ -476,7 +489,7 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	//	analyzeTags(content)
+	analyzeTags(content)
 	d := &Data{}
 	err = readData(content, d)
 	if err != nil {
@@ -489,7 +502,9 @@ func main() {
 	//	analyzeKeyCh(d)
 	//analyzeAll(d)
 	//	analyzeStaff(d)
-		analyzeMeasStaff(d)
+		analyzeStaffdata(d)
+//		analyzeStaffHeader(d)	
+	//	analyzeMeasStaff(d)
 	//	analyzeLine(d)	
 }
 
@@ -538,35 +553,41 @@ func analyzeKeyCh(d *Data) {
 	}
 }
 
+func analyzeStaffdata(d *Data) {
+	for i, s := range d.Staff {
+		fmt.Printf("%d %+v\n", i, s)
+	}
+}
+
 func analyzeStaffHeader(d *Data) {
-	occs := make([]map[int]int, 242)
-	for i := 0; i < 242; i++ {
+	occs := make([]map[int]int, len(d.Staff[0].VarData))
+	for i := range occs {
 		occs[i] = make(map[int]int)
 	}
 	
 	for _, c := range d.Staff {
-		for i := range c.Raw {
-			occs[i][int(c.Raw[i])]++
+		for i := range c.VarData {
+			m := occs[i]
+			m[int(c.VarData[i])]++
 		}
 	}
 	log.Printf("looking for key")
-	for j := 0; j < 242; j++ {
-		if len(occs[j]) == 1 {
+	for j, o := range occs {
+		if len(o) == 1 {
 			continue
 		}
-		log.Println("values", j, len(occs[j]))
+		log.Println("values", j, len(o))
 		for _, c := range d.Staff {
-			fmt.Printf("%d ", c.Raw[j])
+			fmt.Printf("%d ", c.VarData[j])
 		}
 		fmt.Printf("\n")
 	}
 	
-	for i := 0; i < 242; i++ {
-		if len(occs[i]) == 3 {
-			fmt.Printf("%d: %d diff %v\n", i, len(occs[i]), occs[i])
+	for i, o := range occs {
+		if len(o) == 3 {
+			fmt.Printf("%d: %d diff %v\n", i, len(o), o)
 		}
 	}
-
 }
 
 func messM(d *Data) {
