@@ -1,6 +1,6 @@
 package main
 import (
-	"enc2ly/lily"
+	"go-enc2ly/lily"
 	"fmt"
 	"log"
 )
