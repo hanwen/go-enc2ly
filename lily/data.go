@@ -35,6 +35,12 @@ func (d *Duration) String() string {
 	return n
 }
 
+type BarCheck struct {}
+
+func (b *BarCheck) String() string {
+	return "|\n"
+}
+
 type Pitch struct  {
 	Octave int
 	Notename int
@@ -79,6 +85,7 @@ func (p *Pitch) String() string {
 type Chord struct  {
 	Pitch []Pitch
 	Duration
+	PostEvents []string
 }
 
 func (p *Chord) String() string {
@@ -94,7 +101,11 @@ func (p *Chord) String() string {
 		pstr = "<" + strings.Join(pitches, " ") + ">"
 	}
 	
-	return pstr + d.String()
+	pstr += d.String()
+	for _, e := range p.PostEvents {
+		pstr += "-" + e
+	}
+	return pstr
 }
 
 type Rest struct  {

@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"reflect"
 	"strconv"
@@ -67,7 +65,6 @@ func (l *Line) ReadStaffs() {
 	for len(d) > 0 {
 		staffRaw := d[:30]
 		d = d[30:]
-		fmt.Printf("%2d %v\n", i, staffRaw)
 		i++
 		lsd := LineStaffData{}
 		FillFields(staffRaw, &lsd)
@@ -86,7 +83,8 @@ type Measure struct {
 	TimeSigDenTicks uint16 `offset:"14"`
 	TimeSigNum byte `offset:"16"`
 	TimeSigDen byte `offset:"17"`
-	
+	BarTypeStart byte `offset:"20"`
+	BarTypeEnd byte `offset:"21"`
 	VarData []byte
 	Elems []MeasElem
 }
@@ -127,6 +125,7 @@ type StaffData struct {
 
 type MeasElem interface {
 	GetTick() int
+	GetDurationTick() int
 	GetRaw() []byte
 	GetStaff() int
 	GetOffset() int
@@ -145,6 +144,10 @@ type MeasElemBase struct {
 	Type  byte `offset:"2"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
+}
+
+func (n *MeasElemBase) GetDurationTick() int {
+	return 0
 }
 
 func (n *MeasElemBase) GetRaw() []byte {
@@ -188,7 +191,7 @@ type Note struct {
 	// 50 = (3 << 4) | 2 => 2/3 for triplet.
 	Tuplet  byte  `offset:"13"`
 
-	// 25 = same pos as head, 29 for dot 1 position above head
+	// & 0x3: dotcount; &0x4: vertical dot position.
 	DotControl byte `offset:"14"`
 
 	// Does not include staff wide transposition setting; 60 = central C.
@@ -210,6 +213,10 @@ type Note struct {
 
 	ArticulationUp byte `offset:"24"`
 	ArticulationDown byte `offset:"26"`
+}
+
+func (n *Note) GetDurationTick() int {
+	return int(n.DurationTicks)
 }
 
 func (n *Note) Alteration() int {
@@ -272,6 +279,16 @@ func (o *Script) GetTypeName() string {
 	return "Script"
 }
 
+type Clef struct {
+	MeasElemBase
+	ClefType byte `offset:"5"`
+	XOff byte `offset:"10"`
+}
+
+func (o *Clef) GetTypeName() string {
+	return "Clef"
+}
+
 // Also used for tuplet bracket.
 type Beam struct {
 	MeasElemBase
@@ -295,18 +312,44 @@ type Rest struct {
 	DurationTicks   uint16 `offset:"16"`
 }
 
+func (n *Rest) GetDurationTick() int {
+	return int(n.DurationTicks)
+}
+
 func (o *Rest) GetTypeName() string {
 	return "Rest"
 }
 
+type Tie struct {
+	MeasElemBase
+	// offset: 5 - vertical, staff ?
+	// 4=>whole, 7 => 8th -> ? 
+	LeftDurationType byte `offset:"5"` 
+	
+	// offset: 6 - to left/to right ? Bitfield?
+	XOffset byte `offset:"10"`
+	// 11: visibility?  Affects left note too.
+
+	// position/pitch of left note?
+	NotePosition byte `offset:"12"`
+
+	// 13: causes 0 symbol to be printed.
+	// position/pitch of curve
+	TiePosition byte `offset:"14"`
+}
+
+func (o *Tie) GetTypeName() string {
+	return "Tie"
+}
+
 func readElem(c []byte, off int) (e MeasElem) {
 	switch (c[2] >> 4) {
-	case 9:
-		e = &Note{}
 	case 1:
+		e = &Clef{}
+	case 2:
 		e = &KeyChange{}
-	case 8:
-		e = &Rest{}
+	case 3:
+		e = &Tie{}
 	case 4:
 		e = &Beam {}
 	case 5:
@@ -314,10 +357,16 @@ func readElem(c []byte, off int) (e MeasElem) {
 		case 16:
 			e = &Script{}
 		case 86:
+			// todo - 
 		case 28:
 			e = &Slur{}
 		}
+	case 8:
+		e = &Rest{}
+	case 9:
+		e = &Note{}
 	}
+	
 	if e == nil {
 		e = &Other{}
 	}
@@ -333,15 +382,21 @@ func (m *Measure) ReadElems() {
 	r := m.VarData
 	off := m.Offset + 62  // todo - extract.
 	for len(r) >= 3	{
+		if string(r[:2]) == endMarker {
+			break
+		}
 		sz := int(r[3])
-
+		if sz < 3 {
+			log.Fatalf("got sz %d: %q, left %d bytes", sz, r[:10], len(r))
+		}
+		
 		m.Elems = append(m.Elems, readElem(r[:sz], off))
 		r = r[sz:]
 		off += sz
 	}
 
 	if string(r) != endMarker {
-		log.Fatalf("end marker not found")
+		log.Printf("end marker not found: have %q", r)
 	}
 }
 
@@ -459,206 +514,4 @@ func readData(c []byte, f *Data) error {
 	}
 
 	return nil
-}
-
-func isH(x []byte) bool {
-	for i := 0; i < 4; i++ {
-		if !(('0' <= x[i] && x[i] <= '9') ||
-			('A' <= x[i] && x[i] <= 'Z')) {
-			return false
-		}
-	}
-	return true
-}
-
-func dumpBytes(d []byte) {
-	for i, c := range d {
-		fmt.Printf("%5d: %3d", i, c)
-		if i % 4 == 3 && i > 0 {
-			fmt.Printf("\n")
-		}
-	}
-	fmt.Printf("\n")
-}
-
-func analyzeTags(content []byte) {
-	tags := map[string]int{}
-	lastHI := 0
-	lastHName := ""
-	for i, _ := range content {
-		if isH(content[i:]) && i-lastHI > 4 {
-			log.Printf("Header %q, delta %d", lastHName, i-lastHI)
-			sectionContent := content[lastHI:i]
-			want := []byte("Flaut")
-			if idx:= bytes.Index(sectionContent, want); idx > 0 {
-				log.Println("found first staff", idx)
-
-				log.Printf("content %q", content[200:432])
-			}
-			lastHI = i
-			lastHName = string(content[i : i+4])
-			tags[lastHName]++
-		}
-	}
-
-	if false {
-		// find size counter in header.
-		log.Println(tags)
-		head := content[:341]
-		for t, cnt := range tags {
-			offsets := []int{}
-			for i, c := range head {
-				if cnt == int(c) {
-					offsets = append(offsets, i)
-				}
-			}
-
-			log.Printf("tag %q can be at %v", t, offsets)
-		}
-	}
-}
-
-func main() {
-	flag.Parse()
-	content, err := ioutil.ReadFile(flag.Arg(0))
-	if err != nil {
-		log.Fatal("ReadFile", err)
-	}
-
-	d := &Data{}
-	err = readData(content, d)
-	if err != nil {
-		log.Fatalf("readData %v", err)
-	}
-//	analyzeTags(content)
-//	Convert(d)
-	//	analyzeStaff(d)
-	//	messM(d)
-	//mess(d)
-	//	analyzeKeyCh(d)
-	//analyzeAll(d)
-	//	analyzeStaff(d)
-//		analyzeStaffdata(d)
-//		analyzeStaffHeader(d)	
-	//	analyzeMeasStaff(d)
-//		analyzeLine(d)	
-}
-
-func analyzeLine(d *Data) {
-	for i, l  := range d.Lines {
-		fmt.Printf("linesize %d %v\n", i, l.VarSize)
-		fmt.Printf(" %+v, %+v\n", l.LineData, l.Staffs)
-	}
-}
-
-func analyzeAll(d *Data) {
-	for i, m := range d.Measures[:] {
-		fmt.Printf("meas %d\n", i)
-		for _, e  := range m.Elems {
-			fmt.Printf("%+v\n", e)
-		}
-	}
-}
-
-func analyzeStaff(d *Data) {
-	for _, m := range  d.Measures {
-		for _, e  := range m.Elems {
-			if e.GetStaff() == 0 && e.GetTypeName() == "Note"{
-				fmt.Printf("%+v\n", e)
-			}
-		}
-	}
-}
-
-func analyzeMeasStaff(d *Data) {
-	for _, e  := range d.Measures[9].Elems {
-		if e.GetStaff() == 4 {
-			fmt.Printf("%+v\n", e)
-		}
-	}
-}
-
-func analyzeKeyCh(d *Data) {
-	for i, m  := range d.Measures {
-		for j, e  := range m.Elems {
-			if e.GetType() == 32 {
-				log.Printf("meas %d elt %d staff %d", i, j,
-					e.GetStaff())
-			}
-		}
-	}
-}
-
-func analyzeStaffdata(d *Data) {
-	for i, s := range d.Staff {
-		fmt.Printf("%d %+v\n", i, s)
-	}
-}
-
-func analyzeStaffHeader(d *Data) {
-	occs := make([]map[int]int, len(d.Staff[0].VarData))
-	for i := range occs {
-		occs[i] = make(map[int]int)
-	}
-	
-	for _, c := range d.Staff {
-		for i := range c.VarData {
-			m := occs[i]
-			m[int(c.VarData[i])]++
-		}
-	}
-	log.Printf("looking for key")
-	for j, o := range occs {
-		if len(o) == 1 {
-			continue
-		}
-		log.Println("values", j, len(o))
-		for _, c := range d.Staff {
-			fmt.Printf("%d ", c.VarData[j])
-		}
-		fmt.Printf("\n")
-	}
-	
-	for i, o := range occs {
-		if len(o) == 3 {
-			fmt.Printf("%d: %d diff %v\n", i, len(o), o)
-		}
-	}
-}
-
-func messM(d *Data) {
-	raw := make([]byte, len(d.Raw))
-	copy(raw, d.Raw)
-
-	d2 := Data{}
-	readData(raw, &d2)
-	
-	err := ioutil.WriteFile("mess.enc", raw, 0644)
-	if err != nil {
-		log.Fatalf("WriteFile:", err)
-	}
-	
-}
-
-func mess(d *Data) {
-	fmt.Printf("mess\n")
-	raw := make([]byte, len(d.Raw))
-	copy(raw, d.Raw)
-
-	for _, m := range d.Measures[:1] {
-		for _, e  := range m.Elems {
-			if e.GetTypeName() == "Slur" {
-				raw[e.GetOffset() + 5] /= 2
-			}
-		}
-	}
-
-	d2 := Data{}
-	readData(raw, &d2)
-	fmt.Printf("messed\n")
-	
-	err := ioutil.WriteFile("mess.enc", raw, 0644)
-	if err != nil {
-		log.Fatalf("WriteFile:", err)
-	}
 }

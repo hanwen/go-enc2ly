@@ -74,8 +74,24 @@ func ConvertStaff(elems []MeasElem, clefType byte) lily.Elem {
 	basePitch := BasePitch(clefType)
 	lastTick := -1
 	var lastNote *lily.Chord
+	var articulations []string 
 	for _, e := range elems {
+		if e.GetTick() != lastTick && lastNote != nil {
+			lastNote.PostEvents = articulations
+			articulations = nil
+		}
+		
+		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
+			seq.Elems = append(seq.Elems, &lily.BarCheck{})
+		}
+		
 		switch t := e.(type) {
+		case *Tie:
+			if lastNote == nil {
+				log.Println("no last for tie ", lastTick)
+			} else {
+				articulations = append(articulations, "~")
+			}
 		case *Note:
 			p, d := ConvertNote(t, basePitch)
 			if e.GetTick() == lastTick {
