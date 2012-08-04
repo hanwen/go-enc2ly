@@ -71,7 +71,7 @@ func Convert(data *Data) {
 
 	staffVoiceMap := map[int][]idKey{}
 	for k, elems := range staves {
-		seq := ConvertStaff(elems, data.Staff[k.staff].Clef)
+		seq := ConvertStaff(elems)
  		fmt.Printf("%v = %v\n", k.String(), seq)
 		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
 	}
@@ -141,9 +141,8 @@ func BasePitch(clefType byte) lily.Pitch {
 }
 	
 
-func ConvertStaff(elems []*MeasElem, clefType byte) lily.Elem {
+func ConvertStaff(elems []*MeasElem) lily.Elem {
 	seq := lily.Seq{}
-	basePitch := BasePitch(clefType)
 	lastTick := -1
 	var lastNote *lily.Chord
 	var articulations []string 
@@ -172,6 +171,8 @@ func ConvertStaff(elems []*MeasElem, clefType byte) lily.Elem {
 				articulations = append(articulations, "~")
 			}
 		case *Note:
+			basePitch := BasePitch(e.LineStaffData.Clef)
+
 			p, d := ConvertNote(t, basePitch)
 			if e.GetTick() == lastTick {
 				if lastNote == nil {

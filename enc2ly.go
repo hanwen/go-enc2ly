@@ -210,10 +210,20 @@ func readData(c []byte) (*Data, error) {
 }
 
 func setLinks(d *Data) {
-	for _, m := range d.Measures {
+	systemIdx := 0
+	for _, l := range d.Lines {
+		for _, s := range l.Staffs {
+			s.Line = l
+		}
+	}
+	for i, m := range d.Measures {
+		for int(d.Lines[systemIdx].LineData.Start) + int(d.Lines[systemIdx].LineData.MeasureCount) < i {
+			systemIdx++
+		}
 		for _, e := range m.Elems {
 			e.Measure = m
 			e.Staff = d.Staff[e.GetStaff()]
+			e.LineStaffData = d.Lines[systemIdx].Staffs[e.GetStaff()]
 		}
 	}
 }

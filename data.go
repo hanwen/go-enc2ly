@@ -44,10 +44,12 @@ type LineStaffData struct {
 	PageIdx byte `offset:"3"`
 	StaffType byte `offset:"7"`
 	StaffIdx byte `offset:"8"`
+
+	Line *Line
 }
 
 type LineData struct {
-	MeasStart uint16 `offset:"10"` 
+	Start uint16 `offset:"10"` 
 	MeasureCount byte `offset:"12"`
 }
 
@@ -130,8 +132,9 @@ type MeasElem struct {
 
 	TypeSpecific MeasElemSpecific
 
-	*Measure
-	*Staff
+	Measure *Measure
+	Staff *Staff
+	LineStaffData *LineStaffData
 }
 
 func (n *MeasElem) GetTypeName() string {
