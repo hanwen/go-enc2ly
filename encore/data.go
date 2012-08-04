@@ -293,6 +293,7 @@ type Beam struct {
 	NoDuration
 	LeftPos  int8 `offset:"18"`
 	RightPos int8 `offset:"19"`
+	EndNoteTicks uint16 `offset:"20"`
 }
 
 func (o *Beam) GetTypeName() string {

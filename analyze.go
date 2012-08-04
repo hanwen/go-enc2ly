@@ -21,7 +21,8 @@ func analyze(d *encore.Data) {
 	//	analyzeMeasStaff(d)
 	//		analyzeStaffdata(d)
 	//		analyzeStaffHeader(d)	
-	analyzeLine(d)
+//	analyzeLine(d)
+	analyzeBeam(d)	
 }
 
 func analyzeTags(content []byte) {
@@ -110,6 +111,17 @@ func analyzeKeyCh(d *encore.Data) {
 func analyzeStaffdata(d *encore.Data) {
 	for i, s := range d.Staff {
 		fmt.Printf("%d %+v\n", i, s)
+	}
+}
+
+func analyzeBeam(d *encore.Data) {
+	for _, m := range d.Measures {
+		for _, e := range m.Elems {
+			if e.GetTypeName() == "Beam" {
+				fmt.Printf("meas %d %+v %+v\n", m.Id, e, e.TypeSpecific)
+				
+			}
+		}
 	}
 }
 
