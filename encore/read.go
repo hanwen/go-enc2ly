@@ -1,4 +1,4 @@
-package main
+package encore
 
 import (
 	"bytes"
@@ -159,7 +159,7 @@ func (h *Header) String() string {
 		h.MeasureCount)
 }
 
-func readData(c []byte) (*Data, error) {
+func ReadData(c []byte) (*Data, error) {
 	f := new(Data)
 	f.Raw = c
 	off := 0

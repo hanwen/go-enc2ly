@@ -4,6 +4,8 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+
+	"go-enc2ly/encore"
 )
 
 func main() {
@@ -14,10 +16,11 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	d, err := readData(content)
+	d, err := encore.ReadData(content)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
+
 	if *debug {
 		analyze(d)
 	} else {

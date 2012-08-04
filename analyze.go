@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+
+	"go-enc2ly/encore"
 )
 
-func analyze(d *Data) {
+func analyze(d *encore.Data) {
 	//	analyzeTags(content)
 	//	Convert(d)
 	//	analyzeStaff(d)
@@ -59,7 +61,7 @@ func analyzeTags(content []byte) {
 	}
 }
 
-func analyzeLine(d *Data) {
+func analyzeLine(d *encore.Data) {
 	for i, l := range d.Lines {
 		fmt.Printf("%v\n", l)
 		fmt.Printf("linesize %d %v\n", i, l.VarSize)
@@ -67,7 +69,7 @@ func analyzeLine(d *Data) {
 	}
 }
 
-func analyzeAll(d *Data) {
+func analyzeAll(d *encore.Data) {
 	for i, m := range d.Measures[:2] {
 		fmt.Printf("meas %d\n", i)
 		for _, e := range m.Elems {
@@ -76,7 +78,7 @@ func analyzeAll(d *Data) {
 	}
 }
 
-func analyzeStaff(d *Data) {
+func analyzeStaff(d *encore.Data) {
 	for _, m := range d.Measures {
 		for _, e := range m.Elems {
 			if e.GetStaff() == 0 && e.GetTypeName() == "Note" {
@@ -86,7 +88,7 @@ func analyzeStaff(d *Data) {
 	}
 }
 
-func analyzeMeasStaff(d *Data) {
+func analyzeMeasStaff(d *encore.Data) {
 	for _, e := range d.Measures[3].Elems {
 		if e.GetStaff() == 0 {
 			fmt.Printf("%+v\n", e)
@@ -94,7 +96,7 @@ func analyzeMeasStaff(d *Data) {
 	}
 }
 
-func analyzeKeyCh(d *Data) {
+func analyzeKeyCh(d *encore.Data) {
 	for i, m := range d.Measures {
 		for j, e := range m.Elems {
 			if e.GetType() == 32 {
@@ -105,13 +107,13 @@ func analyzeKeyCh(d *Data) {
 	}
 }
 
-func analyzeStaffdata(d *Data) {
+func analyzeStaffdata(d *encore.Data) {
 	for i, s := range d.Staff {
 		fmt.Printf("%d %+v\n", i, s)
 	}
 }
 
-func analyzeStaffHeader(d *Data) {
+func analyzeStaffHeader(d *encore.Data) {
 	occs := make([]map[int]int, len(d.Staff[0].VarData))
 	for i := range occs {
 		occs[i] = make(map[int]int)
@@ -142,11 +144,11 @@ func analyzeStaffHeader(d *Data) {
 	}
 }
 
-func messM(d *Data) {
+func messM(d *encore.Data) {
 	raw := make([]byte, len(d.Raw))
 	copy(raw, d.Raw)
 
-	readData(raw)
+	encore.ReadData(raw)
 
 	err := ioutil.WriteFile("mess.enc", raw, 0644)
 	if err != nil {
@@ -155,7 +157,7 @@ func messM(d *Data) {
 
 }
 
-func mess(d *Data) {
+func mess(d *encore.Data) {
 	fmt.Printf("mess\n")
 	for i := 0; i < 13; i++ {
 		raw := make([]byte, len(d.Raw))
@@ -169,7 +171,7 @@ func mess(d *Data) {
 			}
 		}
 
-		readData(raw)
+		encore.ReadData(raw)
 		fmt.Printf("messed\n")
 
 		err := ioutil.WriteFile(fmt.Sprintf("mess%d.enc", i), raw, 0644)

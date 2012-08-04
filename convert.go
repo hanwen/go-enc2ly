@@ -6,13 +6,15 @@ import (
 	"log"
 	"math/big"
 	"sort"
+
+	"go-enc2ly/encore"
 )
 
 // TODO - tuplets.
 // TODO - clef changes,
 // TODO - key signatures
 
-type ElemSequence []*MeasElem
+type ElemSequence []*encore.MeasElem
 
 func (e ElemSequence) Len() int {
 	return len(e)
@@ -26,7 +28,7 @@ func (e ElemSequence) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func priority(e *MeasElem) int {
+func priority(e *encore.MeasElem) int {
 	prio := int(e.AbsTick()) << 10
 	switch e.GetType() {
 	case 8:
@@ -56,8 +58,8 @@ func (i *idKey) String() string {
 	return fmt.Sprintf("staff%svoice%s", Int2Letter(i.staff), Int2Letter(i.voice))
 }
 
-func Convert(data *Data) {
-	staves := map[idKey][]*MeasElem{}
+func Convert(data *encore.Data) {
+	staves := map[idKey][]*encore.MeasElem{}
 	for _, m := range data.Measures {
 		for _, e := range m.Elems {
 			key := idKey{
@@ -89,7 +91,7 @@ func Convert(data *Data) {
 	fmt.Printf(">>\n")
 }
 
-func ConvertRest(n *Rest) (dur lily.Duration) {
+func ConvertRest(n *encore.Rest) (dur lily.Duration) {
 	dur.DurationLog = int(n.FaceValue) - 1
 	if n.DotControl == 25 || n.DotControl == 29 {
 		dur.Dots = 1
@@ -101,7 +103,7 @@ func Int2Letter(a int) string {
 	return string(byte(a) + 'A')
 }
 
-func ConvertNote(n *Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
+func ConvertNote(n *encore.Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
 	dur.DurationLog = n.DurationLog()
 	if n.DotControl == 25 || n.DotControl == 29 {
 		dur.Dots = 1
@@ -149,7 +151,7 @@ func skipTicks(ticks int) *lily.Skip {
 	}
 }
 
-func ConvertStaff(elems []*MeasElem) lily.Elem {
+func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 	seq := lily.Seq{}
 	lastTick := -1
 	var lastNote *lily.Chord
@@ -179,13 +181,13 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 
 		end := e.AbsTick() + e.GetDurationTick()
 		switch t := e.TypeSpecific.(type) {
-		case *Tie:
+		case *encore.Tie:
 			if lastNote == nil {
 				log.Println("no last for tie ", lastTick)
 			} else {
 				articulations = append(articulations, "~")
 			}
-		case *Note:
+		case *encore.Note:
 			basePitch := BasePitch(e.LineStaffData.Clef)
 
 			p, d := ConvertNote(t, basePitch)
@@ -205,7 +207,7 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 			if end > nextTick {
 				nextTick = end
 			}
-		case *Rest:
+		case *encore.Rest:
 			d := ConvertRest(t)
 			seq.Elems = append(seq.Elems, &lily.Rest{d})
 			if end > nextTick {
