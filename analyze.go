@@ -16,10 +16,10 @@ func analyze(d *Data) {
 	//	analyzeKeyCh(d)
 //	analyzeAll(d)
 	//	analyzeStaff(d)
-	analyzeMeasStaff(d)
+//	analyzeMeasStaff(d)
 //		analyzeStaffdata(d)
 //		analyzeStaffHeader(d)	
-//		analyzeLine(d)	
+		analyzeLine(d)	
 }
 
 func analyzeTags(content []byte) {
@@ -61,6 +61,7 @@ func analyzeTags(content []byte) {
 
 func analyzeLine(d *Data) {
 	for i, l  := range d.Lines {
+		fmt.Printf("%v\n", l)
 		fmt.Printf("linesize %d %v\n", i, l.VarSize)
 		fmt.Printf(" %+v, %+v\n", l.LineData, l.Staffs)
 	}

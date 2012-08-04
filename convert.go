@@ -8,7 +8,9 @@ import (
 
 // TODO - tuplets.
 // TODO - gaps.
-
+// TODO - clef changes,
+// TODO - key signatures
+	
 type ElemSequence []linkedMeasElem
 func (e ElemSequence) Len() int {
 	return len(e)

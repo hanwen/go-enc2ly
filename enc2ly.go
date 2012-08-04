@@ -44,6 +44,7 @@ type LineStaffData struct {
 }
 
 type LineData struct {
+	MeasStart uint16 `offset:"10"` 
 	MeasureCount byte `offset:"12"`
 }
 
@@ -53,7 +54,7 @@ type Line struct {
 	VarSize uint32  `offset:"0x4"`
 	VarData []byte
 	LineData
-	Staffs []LineStaffData
+	Staffs  []LineStaffData
 }
 
 func (l *Line) ReadStaffs() {
