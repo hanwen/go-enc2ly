@@ -3,6 +3,19 @@ engineering tweaking existing .enc files and loading them using the
 4.55 demo version.
 
 
+COMPILATION
+
+* Install the Go compiler suite
+
+* Then run
+
+    mkdir /tmp/go 
+    export GOPATH=/tmp/go
+    go get github.com/hanwen/go-enc2ly
+
+  /tmp/go/bin/go-enc2ly will then contain the program binary.
+
+
 LICENSE
 
 GPL v3.
