@@ -1,11 +1,12 @@
-enc2ly is a Go tool that reads Encore files. It was created by reverse
-engineering tweaking existing .enc files and loading them using the
-4.55 demo version.
+enc2ly is a Go tool that reads Encore files. It was created using
+Felipe Castro's (fefcas@gmail.com) research and reverse engineering by
+tweaking existing .enc files and loading them using the 4.55 demo
+version.
 
 
 COMPILATION
 
-* Install the Go compiler suite
+* Install the Go compiler suite (see http://golang.org/doc/install)
 
 * Then run
 
@@ -16,6 +17,12 @@ COMPILATION
   /tmp/go/bin/go-enc2ly will then contain the program binary.
 
 
+CREDITS
+
+Large parts of the reverse engineering effort were done by Felipe
+Castro as part of enc2ly, http://enc2ly.sourceforge.net/en/
+
+  
 LICENSE
 
 GPL v3.
