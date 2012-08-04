@@ -8,8 +8,8 @@ import (
 func TestDuration(t *testing.T) {
 	d := Duration{
 		DurationLog: 2,
-		Dots: 1,
-		Factor: big.NewRat(7, 5),
+		Dots:        1,
+		Factor:      big.NewRat(7, 5),
 	}
 	got := d.String()
 	want := "4.*7/5"
@@ -20,7 +20,7 @@ func TestDuration(t *testing.T) {
 
 func TestNote(t *testing.T) {
 	n := Chord{
-		Pitch: []Pitch{{Octave: 2, Notename: 3, Alteration: -1}},
+		Pitch:    []Pitch{{Octave: 2, Notename: 3, Alteration: -1}},
 		Duration: Duration{DurationLog: 2, Dots: 1},
 	}
 	got := n.String()

@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}
-	if (*debug) {
+	if *debug {
 		analyze(d)
 	} else {
 		Convert(d)

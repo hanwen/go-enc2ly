@@ -1,19 +1,22 @@
 package lily
+
 import (
 	"fmt"
-	"math/big"
 	"log"
+	"math/big"
 	"strings"
 )
+
 var _ = log.Printf
+
 type Elem interface {
 	String() string
 }
 
-type Duration struct  {
+type Duration struct {
 	DurationLog int
-	Dots int
-	
+	Dots        int
+
 	// If not set, assume 1/1: 
 	Factor *big.Rat
 }
@@ -30,7 +33,7 @@ func (d *Duration) String() string {
 		if i == 0 {
 			panic(d.DurationLog)
 		}
-			
+
 		n = fmt.Sprintf("%d", i)
 	}
 
@@ -43,7 +46,7 @@ func (d *Duration) String() string {
 	return n
 }
 
-type BarCheck struct {}
+type BarCheck struct{}
 
 func (b *BarCheck) String() string {
 	return "|\n"
@@ -57,16 +60,16 @@ func (t *TimeSignature) String() string {
 	return fmt.Sprintf("\\time %d/%d", t.Num, t.Den)
 }
 
-type Pitch struct  {
-	Octave int
-	Notename int
+type Pitch struct {
+	Octave     int
+	Notename   int
 	Alteration int
 }
 
 func (p *Pitch) SemitonePitch() int {
 	p.Normalize()
 	scale := []int{0, 2, 4, 5, 7, 9, 11}
-	return p.Octave * 12 + scale[p.Notename] + p.Alteration
+	return p.Octave*12 + scale[p.Notename] + p.Alteration
 }
 
 func (p *Pitch) Normalize() {
@@ -85,7 +88,7 @@ func (p *Pitch) String() string {
 	altsuffix := []string{"eses", "es", "", "is", "isis"}
 
 	n := names[p.Notename]
-	n += altsuffix[p.Alteration + 2]
+	n += altsuffix[p.Alteration+2]
 	if p.Octave < 0 {
 		for i := -1; i > p.Octave; i-- {
 			n += ","
@@ -98,7 +101,7 @@ func (p *Pitch) String() string {
 	return n
 }
 
-type Chord struct  {
+type Chord struct {
 	Pitch []Pitch
 	Duration
 	PostEvents []string
@@ -116,7 +119,7 @@ func (p *Chord) String() string {
 		}
 		pstr = "<" + strings.Join(pitches, " ") + ">"
 	}
-	
+
 	pstr += d.String()
 	for _, e := range p.PostEvents {
 		pstr += "-" + e
@@ -124,19 +127,19 @@ func (p *Chord) String() string {
 	return pstr
 }
 
-type Skip struct  {
+type Skip struct {
 	Duration
 }
 
-func (r *Skip) String() string  {
+func (r *Skip) String() string {
 	return "s" + r.Duration.String()
 }
 
-type Rest struct  {
+type Rest struct {
 	Duration
 }
 
-func (r *Rest) String() string  {
+func (r *Rest) String() string {
 	return "r" + r.Duration.String()
 }
 
@@ -167,4 +170,3 @@ type Par struct {
 func (s *Par) String() string {
 	return fmt.Sprintf("<< %s >>", s.Compound.String())
 }
-

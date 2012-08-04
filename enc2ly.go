@@ -15,16 +15,16 @@ func (h *Header) FillFirstStaff(staff *Staff) {
 	staff.Offset = 0xc2
 	staff.VarData = raw[8:]
 	staff.VarSize = uint32(len(staff.VarData))
-	
+
 	FillFields(raw[8:], &staff.StaffData)
 }
 
 func (l *Line) ReadStaffs() {
 	d := l.VarData[26:]
-	if len(d) % 30 != 0 {
+	if len(d)%30 != 0 {
 		log.Fatalf("must be multiple of 30: %d", len(d))
 	}
-	i := 0 
+	i := 0
 	for len(d) > 0 {
 		staffRaw := d[:30]
 		d = d[30:]
@@ -37,8 +37,8 @@ func (l *Line) ReadStaffs() {
 
 func readElem(c []byte, off int) (result *MeasElem) {
 	result = new(MeasElem)
-	var e MeasElemSpecific 
-	switch (c[2] >> 4) {
+	var e MeasElemSpecific
+	switch c[2] >> 4 {
 	case 1:
 		e = &Clef{}
 	case 2:
@@ -46,7 +46,7 @@ func readElem(c []byte, off int) (result *MeasElem) {
 	case 3:
 		e = &Tie{}
 	case 4:
-		e = &Beam {}
+		e = &Beam{}
 	case 5:
 		switch c[3] {
 		case 16:
@@ -69,12 +69,12 @@ func readElem(c []byte, off int) (result *MeasElem) {
 	return result
 }
 
-var endMarker = string([]byte{255,255})
+var endMarker = string([]byte{255, 255})
 
 func (m *Measure) ReadElems() {
 	r := m.VarData
-	off := m.Offset + 62  // todo - extract.
-	for len(r) >= 3	{
+	off := m.Offset + 62 // todo - extract.
+	for len(r) >= 3 {
 		if string(r[:2]) == endMarker {
 			break
 		}
@@ -82,7 +82,7 @@ func (m *Measure) ReadElems() {
 		if sz < 3 {
 			log.Fatalf("got sz %d: %q, left %d bytes", sz, r[:10], len(r))
 		}
-		
+
 		m.Elems = append(m.Elems, readElem(r[:sz], off))
 		r = r[sz:]
 		off += sz
@@ -101,7 +101,7 @@ func FillBlock(raw []byte, offset int, dest interface{}) {
 
 	rawAddr := v.FieldByName("Raw").Addr().Interface().(*[]byte)
 	*rawAddr = raw
-	
+
 	FillFields(raw, dest)
 }
 
@@ -122,7 +122,7 @@ func FillFields(raw []byte, dest interface{}) {
 		if off >= int64(len(raw)) {
 			continue
 		}
-		
+
 		z := f.Addr().Interface()
 		binary.Read(bytes.NewBuffer(raw[off:]), binary.LittleEndian, z)
 	}
@@ -130,7 +130,7 @@ func FillFields(raw []byte, dest interface{}) {
 
 func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	v := reflect.ValueOf(dest).Elem()
-	
+
 	tagField, ok := v.Type().FieldByName("Raw")
 	if !ok {
 		log.Fatalf("missing Raw in %T", dest)
@@ -144,7 +144,7 @@ func ReadTaggedBlock(c []byte, off int, dest interface{}) int {
 	fixed := tagField.Tag.Get("fixed")
 	sz, _ := strconv.ParseInt(fixed, 0, 64)
 	rawAddr := v.FieldByName("Raw").Addr().Interface().(*[]byte)
-	raw := c[off:off+int(sz)]
+	raw := c[off : off+int(sz)]
 	*rawAddr = raw
 	if string(raw[:len(want)]) != want {
 		log.Fatalf("Got tag %q want %q - %q", raw[:len(want)], want, raw)
@@ -173,7 +173,7 @@ func readData(c []byte) (*Data, error) {
 		s.Id = i
 		off += ReadTaggedBlock(c, off, s)
 		sz := int(s.VarSize) - 8
-		s.VarData = c[off:off+sz]
+		s.VarData = c[off : off+sz]
 		off += int(sz)
 		FillFields(s.VarData, &s.StaffData)
 	}
@@ -192,7 +192,7 @@ func readData(c []byte) (*Data, error) {
 		l.Id = i
 		f.Lines[i] = l
 		off += ReadTaggedBlock(c, off, l)
-		l.VarData = c[off:off+int(l.VarSize)]
+		l.VarData = c[off : off+int(l.VarSize)]
 		off += int(l.VarSize)
 		FillFields(l.VarData, &l.LineData)
 		l.ReadStaffs()
@@ -204,7 +204,7 @@ func readData(c []byte) (*Data, error) {
 		m.Id = i
 		f.Measures[i] = m
 		off += ReadTaggedBlock(c, off, m)
-		m.VarData = c[off:off+int(m.VarSize)]
+		m.VarData = c[off : off+int(m.VarSize)]
 		off += int(m.VarSize)
 		m.ReadElems()
 	}
@@ -222,7 +222,7 @@ func setLinks(d *Data) {
 	}
 	var abs int
 	for i, m := range d.Measures {
-		for int(d.Lines[systemIdx].LineData.Start) + int(d.Lines[systemIdx].LineData.MeasureCount) < i {
+		for int(d.Lines[systemIdx].LineData.Start)+int(d.Lines[systemIdx].LineData.MeasureCount) < i {
 			systemIdx++
 		}
 		for _, e := range m.Elems {

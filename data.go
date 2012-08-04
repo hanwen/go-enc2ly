@@ -6,12 +6,12 @@ import (
 
 type Line struct {
 	Id      int
-	Offset int
+	Offset  int
 	Raw     []byte `want:"LINE" fixed:"8"`
-	VarSize uint32  `offset:"0x4"`
+	VarSize uint32 `offset:"0x4"`
 	VarData []byte
 	LineData
-	Staffs  []*LineStaffData
+	Staffs []*LineStaffData
 }
 
 type Data struct {
@@ -24,8 +24,8 @@ type Data struct {
 }
 
 type Header struct {
-	Offset     int
-	Raw []byte `want:"SCOW" fixed:"436"`
+	Offset int
+	Raw    []byte `want:"SCOW" fixed:"436"`
 
 	LineCount      int16 `offset:"0x2e"`
 	PageCount      int16 `offset:"0x30"`
@@ -35,45 +35,45 @@ type Header struct {
 }
 
 type Page struct {
-	Id      int
+	Id     int
 	Offset int
-	Raw []byte `want:"PAGE" fixed:"34"`
+	Raw    []byte `want:"PAGE" fixed:"34"`
 }
 
 type LineStaffData struct {
-	Id      int
-	Clef byte `offset:"1"`
-	Key  byte `offset:"2"`
-	PageIdx byte `offset:"3"`
+	Id        int
+	Clef      byte `offset:"1"`
+	Key       byte `offset:"2"`
+	PageIdx   byte `offset:"3"`
 	StaffType byte `offset:"7"`
-	StaffIdx byte `offset:"8"`
+	StaffIdx  byte `offset:"8"`
 
 	Line *Line
 }
 
 type LineData struct {
-	Start uint16 `offset:"10"` 
-	MeasureCount byte `offset:"12"`
+	Start        uint16 `offset:"10"`
+	MeasureCount byte   `offset:"12"`
 }
 
 type Measure struct {
-	Id      int
+	Id     int
 	Offset int
-	Raw     []byte `want:"MEAS" fixed:"62"`
+	Raw    []byte `want:"MEAS" fixed:"62"`
 
-	VarSize int32  `offset:"4"`
-	Bpm     uint16 `offset:"8"`
-	TimeSigGlyph byte `offset:"10"`
-	BeatTicks uint16 `offset:"12"`
-	DurTicks uint16 `offset:"14"`
-	TimeSigNum byte `offset:"16"`
-	TimeSigDen byte `offset:"17"`
-	BarTypeStart byte `offset:"20"`
-	BarTypeEnd byte `offset:"21"`
-	VarData []byte
-	
+	VarSize      int32  `offset:"4"`
+	Bpm          uint16 `offset:"8"`
+	TimeSigGlyph byte   `offset:"10"`
+	BeatTicks    uint16 `offset:"12"`
+	DurTicks     uint16 `offset:"14"`
+	TimeSigNum   byte   `offset:"16"`
+	TimeSigDen   byte   `offset:"17"`
+	BarTypeStart byte   `offset:"20"`
+	BarTypeEnd   byte   `offset:"21"`
+	VarData      []byte
+
 	Elems   []*MeasElem
-	AbsTick  int
+	AbsTick int
 }
 
 func (m *Measure) TimeSignature() string {
@@ -81,11 +81,11 @@ func (m *Measure) TimeSignature() string {
 }
 
 type Staff struct {
-	Id      int
+	Id     int
 	Offset int
 
 	// Sometimes TK00, sometimes TK01
-	Raw []byte `want:"TK0" fixed:"8"`
+	Raw     []byte `want:"TK0" fixed:"8"`
 	VarSize uint32 `offset:"4"`
 	VarData []byte
 
@@ -96,7 +96,7 @@ type StaffData struct {
 	Name [10]byte `offset:"8"`
 
 	// 174, 175, 
-	
+
 	// In semitones; b-flat clar = -2
 	Transposition int8 `offset:"165"`
 
@@ -105,13 +105,13 @@ type StaffData struct {
 	Clef byte `offset:"172"`
 
 	// 181 = 1 for piano staff. ?
-	
+
 	// 180 - 187: MIDI channel (repeated?)
 	// 188 - 195: MIDI program (repeated?)
 	// 196 - 203: MIDI volume (repeated?)
 
 	// 164 ?
-	
+
 	// 205 ?
 }
 
@@ -120,26 +120,26 @@ type MeasElemSpecific interface {
 	GetTypeName() string
 }
 
-type NoDuration struct {}
+type NoDuration struct{}
 
 func (n *NoDuration) GetDurationTick() int {
 	return 0
 }
 
 type MeasElem struct {
-	Raw []byte
+	Raw    []byte
 	Offset int
-	Tick  uint16 `offset:"0"`
+	Tick   uint16 `offset:"0"`
 
 	// type << 4 | voice
-	TypeVoice  byte `offset:"2"`
-	Size  byte `offset:"3"`
-	StaffIdx byte `offset:"4"`
+	TypeVoice byte `offset:"2"`
+	Size      byte `offset:"3"`
+	StaffIdx  byte `offset:"4"`
 
 	TypeSpecific MeasElemSpecific
 
-	Measure *Measure
-	Staff *Staff
+	Measure       *Measure
+	Staff         *Staff
 	LineStaffData *LineStaffData
 }
 
@@ -187,42 +187,45 @@ type Note struct {
 	WithDuration
 
 	// must use masking?
-	Grace  byte `offset:"6"`
-	XOffset       byte `offset:"10"`
+	Grace   byte `offset:"6"`
+	XOffset byte `offset:"10"`
 
 	// ledger below staff = 0; top line = 10
-	Position        int8 `offset:"12"`
-
+	Position int8 `offset:"12"`
 
 	// Does not include staff wide transposition setting; 60 = central C.
-	SemitonePitch   byte `offset:"15"`
+	SemitonePitch byte `offset:"15"`
 
-	PlaybackDurationTicks   uint16 `offset:"16"`
+	PlaybackDurationTicks uint16 `offset:"16"`
 
 	// Not sure - but encore defaults to 64; and all have this?
 	Velocity byte `offset:"19"`
-	
+
 	// 128 = stem-down bit
 	// 7 = unbeamed?
 	Options byte `offset:"20"`
-	
+
 	// 1=sharp, 2=flat, 3=natural, 4=dsharp, 5=dflat
 	// used as offset in font. Using 6 gives a longa symbol
 	// alteration is in low nibble.
 	AlterationGlyph byte `offset:"21"`
 
-	ArticulationUp byte `offset:"24"`
+	ArticulationUp   byte `offset:"24"`
 	ArticulationDown byte `offset:"26"`
 }
 
-
 func (n *Note) Alteration() int {
 	switch n.AlterationGlyph {
-	case 1: return 1
-	case 2: return -1
-	case 3: return 0
-	case 4: return 2
-	case 5: return -2
+	case 1:
+		return 1
+	case 2:
+		return -1
+	case 3:
+		return 0
+	case 4:
+		return 2
+	case 5:
+		return -2
 	}
 	return 0
 }
@@ -233,17 +236,16 @@ func (o *Note) GetTypeName() string {
 
 type Slur struct {
 	NoDuration
-	
-	// 33 = slur, 16=8va, ... ?
-	SlurType  byte `offset:"5"`
-	LeftX byte `offset:"10"`
-	LeftPosition byte `offset:"12"`
-	MiddleX byte `offset:"14"`
-	MiddlePosition byte `offset:"16"`
-	RightX byte `offset: "20"`
-	RightPosition byte `offset:"22"`
-}
 
+	// 33 = slur, 16=8va, ... ?
+	SlurType       byte `offset:"5"`
+	LeftX          byte `offset:"10"`
+	LeftPosition   byte `offset:"12"`
+	MiddleX        byte `offset:"14"`
+	MiddlePosition byte `offset:"16"`
+	RightX         byte `offset: "20"`
+	RightPosition  byte `offset:"22"`
+}
 
 func (o *Slur) GetTypeName() string {
 	return "Slur"
@@ -251,8 +253,8 @@ func (o *Slur) GetTypeName() string {
 
 type KeyChange struct {
 	NoDuration
-	NewKey byte  `offset:"5"`
-	OldKey byte  `offset:"10"`
+	NewKey byte `offset:"5"`
+	OldKey byte `offset:"10"`
 }
 
 func (o *KeyChange) GetTypeName() string {
@@ -279,7 +281,7 @@ func (o *Script) GetTypeName() string {
 type Clef struct {
 	NoDuration
 	ClefType byte `offset:"5"`
-	XOff byte `offset:"10"`
+	XOff     byte `offset:"10"`
 }
 
 func (o *Clef) GetTypeName() string {
@@ -289,8 +291,8 @@ func (o *Clef) GetTypeName() string {
 // Also used for tuplet bracket.
 type Beam struct {
 	NoDuration
-	LeftPos int8 `offset:"18"` 
-	RightPos int8 `offset:"19"` 
+	LeftPos  int8 `offset:"18"`
+	RightPos int8 `offset:"19"`
 }
 
 func (o *Beam) GetTypeName() string {
@@ -301,12 +303,12 @@ type WithDuration struct {
 	// 4 = 8th, 3=quarter, 2=half, etc.
 	//
 	// hi nibble has notehead type.
-	FaceValue     byte `offset:"5"`
+	FaceValue byte `offset:"5"`
 	// 50 = (3 << 4) | 2 => 2/3 for triplet.
-	Tuplet   byte `offset:"13"`
+	Tuplet byte `offset:"13"`
 	// & 0x3: dotcount; &0x4: vertical dot position.
-	DotControl byte `offset:"14"`
-	PlaybackDurationTicks   uint16 `offset:"16"`
+	DotControl            byte   `offset:"14"`
+	PlaybackDurationTicks uint16 `offset:"16"`
 }
 
 func (w *WithDuration) GetDurationTick() int {
@@ -319,7 +321,7 @@ func (w *WithDuration) GetDurationTick() int {
 		num <<= uint(-diff)
 	}
 
-	if w.DotControl & 0x3 == 1 {
+	if w.DotControl&0x3 == 1 {
 		// todo double dot
 		num *= 3
 		den *= 2
@@ -332,16 +334,16 @@ func (w *WithDuration) GetDurationTick() int {
 	// 16 16ths to the wholes, 60 ticks per 16th.
 	num *= 60 * 16
 
-	return num/den
+	return num / den
 }
 
 func (w *WithDuration) DurationLog() int {
-	return int(w.FaceValue & 0xf) - 1
+	return int(w.FaceValue&0xf) - 1
 }
 
 type Rest struct {
 	WithDuration
-	XOffset    byte `offset:"10"`
+	XOffset  byte `offset:"10"`
 	Position int8 `offset:"12"`
 }
 
@@ -353,8 +355,8 @@ type Tie struct {
 	NoDuration
 	// offset: 5 - vertical, staff ?
 	// 4=>whole, 7 => 8th -> ? 
-	LeftDurationType byte `offset:"5"` 
-	
+	LeftDurationType byte `offset:"5"`
+
 	// offset: 6 - to left/to right ? Bitfield?
 	XOffset byte `offset:"10"`
 	// 11: visibility?  Affects left note too.

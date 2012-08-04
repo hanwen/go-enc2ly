@@ -1,7 +1,8 @@
 package main
+
 import (
-	"go-enc2ly/lily"
 	"fmt"
+	"go-enc2ly/lily"
 	"log"
 	"math/big"
 	"sort"
@@ -10,8 +11,9 @@ import (
 // TODO - tuplets.
 // TODO - clef changes,
 // TODO - key signatures
-	
+
 type ElemSequence []*MeasElem
+
 func (e ElemSequence) Len() int {
 	return len(e)
 }
@@ -27,18 +29,21 @@ func (e ElemSequence) Swap(i, j int) {
 func priority(e *MeasElem) int {
 	prio := int(e.AbsTick()) << 10
 	switch e.GetType() {
-	case 8: fallthrough
+	case 8:
+		fallthrough
 	case 9:
 		prio += 10
 
 	// pref matter:
-	case 1: fallthrough
-	case 2: 
+	case 1:
+		fallthrough
+	case 2:
 		prio += 0
 
-	default: prio += 20
+	default:
+		prio += 20
 	}
-	
+
 	return prio
 }
 
@@ -50,7 +55,7 @@ type idKey struct {
 func (i *idKey) String() string {
 	return fmt.Sprintf("staff%svoice%s", Int2Letter(i.staff), Int2Letter(i.voice))
 }
-	
+
 func Convert(data *Data) {
 	staves := map[idKey][]*MeasElem{}
 	for _, m := range data.Measures {
@@ -65,11 +70,11 @@ func Convert(data *Data) {
 	for _, v := range staves {
 		sort.Sort(ElemSequence(v))
 	}
-	
+
 	staffVoiceMap := map[int][]idKey{}
 	for k, elems := range staves {
 		seq := ConvertStaff(elems)
- 		fmt.Printf("%v = %v\n", k.String(), seq)
+		fmt.Printf("%v = %v\n", k.String(), seq)
 		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
 	}
 
@@ -96,7 +101,6 @@ func Int2Letter(a int) string {
 	return string(byte(a) + 'A')
 }
 
-
 func ConvertNote(n *Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
 	dur.DurationLog = n.DurationLog()
 	if n.DotControl == 25 || n.DotControl == 29 {
@@ -109,39 +113,38 @@ func ConvertNote(n *Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duratio
 	return baseStep, dur
 }
 
-
 // Returns the pitch for ledger line below staff.
 func BasePitch(clefType byte) lily.Pitch {
 	switch clefType {
 	case 0:
 		return lily.Pitch{
 			Notename: 0,
-			Octave: 0,
+			Octave:   0,
 		}
 	case 1:
 		return lily.Pitch{
 			Notename: 2,
-			Octave: -2,
+			Octave:   -2,
 		}
 	case 2:
 		return lily.Pitch{
 			Notename: 1,
-			Octave: -1,
+			Octave:   -1,
 		}
 	case 3:
 		return lily.Pitch{
 			Notename: 6,
-			Octave: -2,
+			Octave:   -2,
 		}
 	}
 	return lily.Pitch{}
 }
-	
+
 func skipTicks(ticks int) *lily.Skip {
 	return &lily.Skip{
 		Duration: lily.Duration{
 			DurationLog: 4,
-			Factor: big.NewRat(int64(ticks), 60),
+			Factor:      big.NewRat(int64(ticks), 60),
 		},
 	}
 }
@@ -157,7 +160,7 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 			lastNote.PostEvents = articulations
 			articulations = nil
 		}
-		
+
 		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
 			seq.Elems = append(seq.Elems, &lily.BarCheck{})
 		}
@@ -170,10 +173,10 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 		}
 
 		if i > 0 && nextTick < e.AbsTick() {
-			seq.Elems = append(seq.Elems, skipTicks(e.AbsTick() - nextTick))
+			seq.Elems = append(seq.Elems, skipTicks(e.AbsTick()-nextTick))
 			nextTick = e.AbsTick()
 		}
-		
+
 		end := e.AbsTick() + e.GetDurationTick()
 		switch t := e.TypeSpecific.(type) {
 		case *Tie:

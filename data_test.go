@@ -6,9 +6,9 @@ import (
 
 func TestWithDuration(t *testing.T) {
 	w := WithDuration{
-		FaceValue: 4,
+		FaceValue:  4,
 		DotControl: 1,
-		Tuplet: 50,
+		Tuplet:     50,
 	}
 	got := w.GetDurationTick()
 	want := 120
