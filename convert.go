@@ -3,11 +3,11 @@ import (
 	"go-enc2ly/lily"
 	"fmt"
 	"log"
+	"math/big"
 	"sort"
 )
 
 // TODO - tuplets.
-// TODO - gaps.
 // TODO - clef changes,
 // TODO - key signatures
 	
@@ -25,7 +25,7 @@ func (e ElemSequence) Swap(i, j int) {
 }
 
 func priority(e *MeasElem) int {
-	prio := int(e.GetTick()) << 10
+	prio := int(e.AbsTick()) << 10
 	switch e.GetType() {
 	case 8: fallthrough
 	case 9:
@@ -54,21 +54,18 @@ func (i *idKey) String() string {
 func Convert(data *Data) {
 	staves := map[idKey][]*MeasElem{}
 	for _, m := range data.Measures {
-		measStaves := map[idKey][]*MeasElem{}
 		for _, e := range m.Elems {
 			key := idKey{
 				staff: e.GetStaff(),
 				voice: e.Voice(),
 			}
-			measStaves[key] = append(measStaves[key], e)
-		}
-
-		for k, v := range measStaves {
-			sort.Sort(ElemSequence(v))
-			staves[k] = append(staves[k], v...)
+			staves[key] = append(staves[key], e)
 		}
 	}
-
+	for _, v := range staves {
+		sort.Sort(ElemSequence(v))
+	}
+	
 	staffVoiceMap := map[int][]idKey{}
 	for k, elems := range staves {
 		seq := ConvertStaff(elems)
@@ -140,12 +137,21 @@ func BasePitch(clefType byte) lily.Pitch {
 	return lily.Pitch{}
 }
 	
+func skipTicks(ticks int) *lily.Skip {
+	return &lily.Skip{
+		Duration: lily.Duration{
+			DurationLog: 4,
+			Factor: big.NewRat(int64(ticks), 60),
+		},
+	}
+}
 
 func ConvertStaff(elems []*MeasElem) lily.Elem {
 	seq := lily.Seq{}
 	lastTick := -1
 	var lastNote *lily.Chord
-	var articulations []string 
+	var articulations []string
+	var nextTick int
 	for i, e := range elems {
 		if e.GetTick() != lastTick && lastNote != nil {
 			lastNote.PostEvents = articulations
@@ -162,7 +168,13 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 				Den: int(e.Measure.TimeSigDen),
 			})
 		}
+
+		if i > 0 && nextTick < e.AbsTick() {
+			seq.Elems = append(seq.Elems, skipTicks(e.AbsTick() - nextTick))
+			nextTick = e.AbsTick()
+		}
 		
+		end := e.AbsTick() + e.GetDurationTick()
 		switch t := e.TypeSpecific.(type) {
 		case *Tie:
 			if lastNote == nil {
@@ -187,11 +199,15 @@ func ConvertStaff(elems []*MeasElem) lily.Elem {
 				seq.Elems = append(seq.Elems, lastNote)
 			}
 			lastTick = e.GetTick()
+			if end > nextTick {
+				nextTick = end
+			}
 		case *Rest:
 			d := ConvertRest(t)
 			seq.Elems = append(seq.Elems, &lily.Rest{d})
-		default:
-			continue
+			if end > nextTick {
+				nextTick = end
+			}
 		}
 	}
 	return &seq

@@ -5,6 +5,7 @@ import (
 )
 
 type Line struct {
+	Id      int
 	Offset int
 	Raw     []byte `want:"LINE" fixed:"8"`
 	VarSize uint32  `offset:"0x4"`
@@ -34,11 +35,13 @@ type Header struct {
 }
 
 type Page struct {
+	Id      int
 	Offset int
 	Raw []byte `want:"PAGE" fixed:"34"`
 }
 
 type LineStaffData struct {
+	Id      int
 	Clef byte `offset:"1"`
 	Key  byte `offset:"2"`
 	PageIdx byte `offset:"3"`
@@ -54,14 +57,15 @@ type LineData struct {
 }
 
 type Measure struct {
+	Id      int
 	Offset int
 	Raw     []byte `want:"MEAS" fixed:"62"`
 
 	VarSize int32  `offset:"4"`
 	Bpm     uint16 `offset:"8"`
 	TimeSigGlyph byte `offset:"10"`
-	TimeSigNumTicks uint16 `offset:"12"`
-	TimeSigDenTicks uint16 `offset:"14"`
+	BeatTicks uint16 `offset:"12"`
+	DurTicks uint16 `offset:"14"`
 	TimeSigNum byte `offset:"16"`
 	TimeSigDen byte `offset:"17"`
 	BarTypeStart byte `offset:"20"`
@@ -69,6 +73,7 @@ type Measure struct {
 	VarData []byte
 	
 	Elems   []*MeasElem
+	AbsTick  int
 }
 
 func (m *Measure) TimeSignature() string {
@@ -76,6 +81,7 @@ func (m *Measure) TimeSignature() string {
 }
 
 type Staff struct {
+	Id      int
 	Offset int
 
 	// Sometimes TK00, sometimes TK01
@@ -137,6 +143,10 @@ type MeasElem struct {
 	LineStaffData *LineStaffData
 }
 
+func (n *MeasElem) AbsTick() int {
+	return int(n.Tick) + n.Measure.AbsTick
+}
+
 func (n *MeasElem) GetTypeName() string {
 	return n.TypeSpecific.GetTypeName()
 }
@@ -174,10 +184,7 @@ func (n *MeasElem) GetOffset() int {
 }
 
 type Note struct {
-	// 4 = 8th, 3=quarter, 2=half, etc.
-	//
-	// hi nibble has notehead type.
-	FaceValue     byte `offset:"5"`
+	WithDuration
 
 	// must use masking?
 	Grace  byte `offset:"6"`
@@ -186,16 +193,11 @@ type Note struct {
 	// ledger below staff = 0; top line = 10
 	Position        int8 `offset:"12"`
 
-	// 50 = (3 << 4) | 2 => 2/3 for triplet.
-	Tuplet  byte  `offset:"13"`
-
-	// & 0x3: dotcount; &0x4: vertical dot position.
-	DotControl byte `offset:"14"`
 
 	// Does not include staff wide transposition setting; 60 = central C.
 	SemitonePitch   byte `offset:"15"`
-	
-	DurationTicks   uint16 `offset:"16"`
+
+	PlaybackDurationTicks   uint16 `offset:"16"`
 
 	// Not sure - but encore defaults to 64; and all have this?
 	Velocity byte `offset:"19"`
@@ -213,13 +215,6 @@ type Note struct {
 	ArticulationDown byte `offset:"26"`
 }
 
-func (n *Note) GetDurationTick() int {
-	return int(n.DurationTicks)
-}
-
-func (n *Note) DurationLog() int {
-	return int(n.FaceValue & 0xf) - 1
-}
 
 func (n *Note) Alteration() int {
 	switch n.AlterationGlyph {
@@ -302,18 +297,52 @@ func (o *Beam) GetTypeName() string {
 	return "Beam"
 }
 
-type Rest struct {
-	// see Note for more explanation. 
+type WithDuration struct {
+	// 4 = 8th, 3=quarter, 2=half, etc.
+	//
+	// hi nibble has notehead type.
 	FaceValue     byte `offset:"5"`
-	XOffset    byte `offset:"10"`
-	Position int8 `offset:"12"`
+	// 50 = (3 << 4) | 2 => 2/3 for triplet.
 	Tuplet   byte `offset:"13"`
+	// & 0x3: dotcount; &0x4: vertical dot position.
 	DotControl byte `offset:"14"`
-	DurationTicks   uint16 `offset:"16"`
+	PlaybackDurationTicks   uint16 `offset:"16"`
 }
 
-func (n *Rest) GetDurationTick() int {
-	return int(n.DurationTicks)
+func (w *WithDuration) GetDurationTick() int {
+	num := 1
+	den := 1
+	diff := w.DurationLog()
+	if diff >= 0 {
+		den <<= uint(diff)
+	} else {
+		num <<= uint(-diff)
+	}
+
+	if w.DotControl & 0x3 == 1 {
+		// todo double dot
+		num *= 3
+		den *= 2
+	}
+	if w.Tuplet != 0 {
+		num *= int(w.Tuplet & 0xf)
+		den *= int(w.Tuplet >> 4)
+	}
+
+	// 16 16ths to the wholes, 60 ticks per 16th.
+	num *= 60 * 16
+
+	return num/den
+}
+
+func (w *WithDuration) DurationLog() int {
+	return int(w.FaceValue & 0xf) - 1
+}
+
+type Rest struct {
+	WithDuration
+	XOffset    byte `offset:"10"`
+	Position int8 `offset:"12"`
 }
 
 func (o *Rest) GetTypeName() string {

@@ -1,6 +1,7 @@
 package lily
 import (
 	"fmt"
+	"math/big"
 	"log"
 	"strings"
 )
@@ -9,11 +10,12 @@ type Elem interface {
 	String() string
 }
 
-
 type Duration struct  {
 	DurationLog int
 	Dots int
-	// todo - triplets.
+	
+	// If not set, assume 1/1: 
+	Factor *big.Rat
 }
 
 func (d *Duration) String() string {
@@ -35,7 +37,9 @@ func (d *Duration) String() string {
 	for i := 0; i < d.Dots; i++ {
 		n += "."
 	}
-
+	if d.Factor != nil {
+		n += "*" + d.Factor.RatString()
+	}
 	return n
 }
 
@@ -118,6 +122,14 @@ func (p *Chord) String() string {
 		pstr += "-" + e
 	}
 	return pstr
+}
+
+type Skip struct  {
+	Duration
+}
+
+func (r *Skip) String() string  {
+	return "s" + r.Duration.String()
 }
 
 type Rest struct  {

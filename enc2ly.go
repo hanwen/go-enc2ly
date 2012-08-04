@@ -170,6 +170,7 @@ func readData(c []byte) (*Data, error) {
 	for i := 1; i < len(f.Staff); i++ {
 		s := new(Staff)
 		f.Staff[i] = s
+		s.Id = i
 		off += ReadTaggedBlock(c, off, s)
 		sz := int(s.VarSize) - 8
 		s.VarData = c[off:off+sz]
@@ -180,6 +181,7 @@ func readData(c []byte) (*Data, error) {
 	f.Pages = make([]*Page, f.Header.PageCount)
 	for i := 0; i < int(f.Header.PageCount); i++ {
 		p := new(Page)
+		p.Id = i
 		off += ReadTaggedBlock(c, off, p)
 		f.Pages[i] = p
 	}
@@ -187,6 +189,7 @@ func readData(c []byte) (*Data, error) {
 	f.Lines = make([]*Line, f.Header.LineCount)
 	for i := 0; i < int(f.Header.LineCount); i++ {
 		l := new(Line)
+		l.Id = i
 		f.Lines[i] = l
 		off += ReadTaggedBlock(c, off, l)
 		l.VarData = c[off:off+int(l.VarSize)]
@@ -198,6 +201,7 @@ func readData(c []byte) (*Data, error) {
 	f.Measures = make([]*Measure, f.Header.MeasureCount)
 	for i := 0; i < int(f.Header.MeasureCount); i++ {
 		m := new(Measure)
+		m.Id = i
 		f.Measures[i] = m
 		off += ReadTaggedBlock(c, off, m)
 		m.VarData = c[off:off+int(m.VarSize)]
@@ -216,6 +220,7 @@ func setLinks(d *Data) {
 			s.Line = l
 		}
 	}
+	var abs int
 	for i, m := range d.Measures {
 		for int(d.Lines[systemIdx].LineData.Start) + int(d.Lines[systemIdx].LineData.MeasureCount) < i {
 			systemIdx++
@@ -225,5 +230,7 @@ func setLinks(d *Data) {
 			e.Staff = d.Staff[e.GetStaff()]
 			e.LineStaffData = d.Lines[systemIdx].Staffs[e.GetStaff()]
 		}
+		m.AbsTick = abs
+		abs += int(m.DurTicks)
 	}
 }
