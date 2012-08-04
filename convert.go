@@ -12,7 +12,6 @@ import (
 
 // TODO - tuplets.
 // TODO - clef changes,
-// TODO - key signatures
 
 type ElemSequence []*encore.MeasElem
 
@@ -89,6 +88,18 @@ func Convert(data *encore.Data) {
 		fmt.Printf(">>\n")
 	}
 	fmt.Printf(">>\n")
+}
+
+func ConvertKey(key byte) *lily.KeySignature {
+	names := []string{
+		"c", "f", "bes",
+		"es", "as", "des", "ges", "ces", "g", "d", "a", "e", "b",
+		"fis", "cis", }
+
+	return &lily.KeySignature{
+		Name: names[key],
+		ScaleType: "major",
+	}	
 }
 
 func ConvertRest(n *encore.Rest) (dur lily.Duration) {
@@ -173,7 +184,11 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 				Den: int(e.Measure.TimeSigDen),
 			})
 		}
-
+		if i == 0 {
+			seq.Elems = append(seq.Elems,
+				ConvertKey(e.LineStaffData.Key))
+		}
+		
 		if i > 0 && nextTick < e.AbsTick() {
 			seq.Elems = append(seq.Elems, skipTicks(e.AbsTick()-nextTick))
 			nextTick = e.AbsTick()
@@ -213,6 +228,8 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			if end > nextTick {
 				nextTick = end
 			}
+		case *encore.KeyChange:
+			seq.Elems = append(seq.Elems, ConvertKey(t.NewKey))
 		}
 	}
 	return &seq

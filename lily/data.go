@@ -170,3 +170,13 @@ type Par struct {
 func (s *Par) String() string {
 	return fmt.Sprintf("<< %s >>", s.Compound.String())
 }
+
+type KeySignature struct {
+	// TODO - should use pitch instead.
+	Name string
+	ScaleType string
+}
+
+func (k *KeySignature) String() string {
+	return fmt.Sprintf("\\key %s \\%s", k.Name, k.ScaleType)
+}
