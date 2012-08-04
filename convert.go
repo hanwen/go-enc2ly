@@ -69,8 +69,8 @@ func Convert(data *Data) {
 			}
 			l := linkedMeasElem{
 				MeasElem: e,
-				measure: &m,
-				staff: &data.Staff[e.GetStaff()],
+				measure: m,
+				staff: data.Staff[e.GetStaff()],
 			}
 			measStaves[key] = append(measStaves[key], l)
 		}
