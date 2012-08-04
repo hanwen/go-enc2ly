@@ -126,9 +126,12 @@ type MeasElem struct {
 	// type << 4 | voice
 	TypeVoice  byte `offset:"2"`
 	Size  byte `offset:"3"`
-	Staff byte `offset:"4"`
+	StaffIdx byte `offset:"4"`
 
 	TypeSpecific MeasElemSpecific
+
+	*Measure
+	*Staff
 }
 
 func (n *MeasElem) GetTypeName() string {
@@ -160,7 +163,7 @@ func (n *MeasElem) Sz() int {
 }
 
 func (n *MeasElem) GetStaff() int {
-	return int(n.Staff)
+	return int(n.StaffIdx)
 }
 
 func (n *MeasElem) GetOffset() int {

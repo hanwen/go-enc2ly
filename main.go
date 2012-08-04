@@ -14,8 +14,7 @@ func main() {
 		log.Fatal("ReadFile", err)
 	}
 
-	d := &Data{}
-	err = readData(content, d)
+	d, err := readData(content)
 	if err != nil {
 		log.Fatalf("readData %v", err)
 	}

@@ -159,7 +159,8 @@ func (h *Header) String() string {
 		h.MeasureCount)
 }
 
-func readData(c []byte, f *Data) error {
+func readData(c []byte) (*Data, error) {
+	f := new(Data)
 	f.Raw = c
 	off := 0
 	off += ReadTaggedBlock(c, off, &f.Header)
@@ -204,5 +205,15 @@ func readData(c []byte, f *Data) error {
 		m.ReadElems()
 	}
 
-	return nil
+	setLinks(f)
+	return f, nil
+}
+
+func setLinks(d *Data) {
+	for _, m := range d.Measures {
+		for _, e := range m.Elems {
+			e.Measure = m
+			e.Staff = d.Staff[e.GetStaff()]
+		}
+	}
 }

@@ -146,8 +146,7 @@ func messM(d *Data) {
 	raw := make([]byte, len(d.Raw))
 	copy(raw, d.Raw)
 
-	d2 := Data{}
-	readData(raw, &d2)
+	readData(raw)
 	
 	err := ioutil.WriteFile("mess.enc", raw, 0644)
 	if err != nil {
@@ -170,8 +169,7 @@ func mess(d *Data) {
 			}
 		}
 
-		d2 := Data{}
-		readData(raw, &d2)
+		readData(raw)
 		fmt.Printf("messed\n")
 		
 		err := ioutil.WriteFile(fmt.Sprintf("mess%d.enc", i), raw, 0644)

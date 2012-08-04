@@ -11,7 +11,7 @@ import (
 // TODO - clef changes,
 // TODO - key signatures
 	
-type ElemSequence []linkedMeasElem
+type ElemSequence []*MeasElem
 func (e ElemSequence) Len() int {
 	return len(e)
 }
@@ -24,7 +24,7 @@ func (e ElemSequence) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func priority(e linkedMeasElem) int {
+func priority(e *MeasElem) int {
 	prio := int(e.GetTick()) << 10
 	switch e.GetType() {
 	case 8: fallthrough
@@ -42,13 +42,6 @@ func priority(e linkedMeasElem) int {
 	return prio
 }
 
-type linkedMeasElem struct {
-	*MeasElem
-
-	measure *Measure
-	staff   *Staff
-}
-
 type idKey struct {
 	staff int
 	voice int
@@ -59,20 +52,15 @@ func (i *idKey) String() string {
 }
 	
 func Convert(data *Data) {
-	staves := map[idKey][]linkedMeasElem{}
+	staves := map[idKey][]*MeasElem{}
 	for _, m := range data.Measures {
-		measStaves := map[idKey][]linkedMeasElem{}
+		measStaves := map[idKey][]*MeasElem{}
 		for _, e := range m.Elems {
 			key := idKey{
 				staff: e.GetStaff(),
 				voice: e.Voice(),
 			}
-			l := linkedMeasElem{
-				MeasElem: e,
-				measure: m,
-				staff: data.Staff[e.GetStaff()],
-			}
-			measStaves[key] = append(measStaves[key], l)
+			measStaves[key] = append(measStaves[key], e)
 		}
 
 		for k, v := range measStaves {
@@ -153,7 +141,7 @@ func BasePitch(clefType byte) lily.Pitch {
 }
 	
 
-func ConvertStaff(elems []linkedMeasElem, clefType byte) lily.Elem {
+func ConvertStaff(elems []*MeasElem, clefType byte) lily.Elem {
 	seq := lily.Seq{}
 	basePitch := BasePitch(clefType)
 	lastTick := -1
@@ -169,14 +157,14 @@ func ConvertStaff(elems []linkedMeasElem, clefType byte) lily.Elem {
 			seq.Elems = append(seq.Elems, &lily.BarCheck{})
 		}
 
-		if i == 0 || (e.GetTick() == 0 && elems[i-1].measure.TimeSignature() != e.measure.TimeSignature()) {
+		if i == 0 || (e.GetTick() == 0 && elems[i-1].Measure.TimeSignature() != e.Measure.TimeSignature()) {
 			seq.Elems = append(seq.Elems, &lily.TimeSignature{
-				Num: int(e.measure.TimeSigNum),
-				Den: int(e.measure.TimeSigDen),
+				Num: int(e.Measure.TimeSigNum),
+				Den: int(e.Measure.TimeSigDen),
 			})
 		}
 		
-		switch t := e.MeasElem.TypeSpecific.(type) {
+		switch t := e.TypeSpecific.(type) {
 		case *Tie:
 			if lastNote == nil {
 				log.Println("no last for tie ", lastTick)
