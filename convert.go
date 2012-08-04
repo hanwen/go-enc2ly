@@ -3,20 +3,72 @@ import (
 	"go-enc2ly/lily"
 	"fmt"
 	"log"
+	"sort"
 )
 
+type ElemSequence []linkedMeasElem
+func (e ElemSequence) Len() int {
+	return len(e)
+}
+
+func (e ElemSequence) Less(i, j int) bool {
+	return priority(e[i]) < priority(e[j])
+}
+
+func (e ElemSequence) Swap(i, j int) {
+	e[i], e[j] = e[j], e[i]
+}
+
+func priority(e linkedMeasElem) int {
+	prio := int(e.GetTick()) << 10
+	switch e.GetType() {
+	case 8: fallthrough
+	case 9:
+		prio += 10
+
+	// pref matter:
+	case 1: fallthrough
+	case 2: 
+		prio += 0
+
+	default: prio += 20
+	}
+	
+	return prio
+}
+
+type linkedMeasElem struct {
+	MeasElem
+
+	measure *Measure
+	staff   *Staff
+}
+
 func Convert(data *Data) {
-	staves := map[int][]MeasElem{}
+	staves := map[int][]linkedMeasElem{}
 	for _, m := range data.Measures {
+		measStaves := map[int][]linkedMeasElem{}
 		for _, e := range m.Elems {
-			st := e.GetStaff()
-			staves[st] = append(staves[st], e)
+			key := e.Voice() + e.GetStaff() << 4
+			l := linkedMeasElem{
+				MeasElem: e,
+				measure: &m,
+				staff: &data.Staff[e.GetStaff()],
+			}
+			measStaves[key] = append(measStaves[key], l)
+		}
+
+		for k, v := range measStaves {
+			sort.Sort(ElemSequence(v))
+			staves[k] = append(staves[k], v...)
 		}
 	}
 
 	for idx, elems := range staves {
 		seq := ConvertStaff(elems, data.Staff[idx].Clef)
-		fmt.Printf("staff%d = %v\n", idx, seq)
+		staff := idx >> 4
+		voice := idx & 0xf
+ 		fmt.Printf("staff%svoice%s = %v\n", Int2Letter(staff), Int2Letter(voice), seq)
 	}
 }
 
@@ -28,8 +80,13 @@ func ConvertRest(n *Rest) (dur lily.Duration) {
 	return dur
 }
 
+func Int2Letter(a int) string {
+	return string(byte(a) + 'A')
+}
+
+
 func ConvertNote(n *Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
-	dur.DurationLog = int(n.FaceValue) - 1
+	dur.DurationLog = n.DurationLog()
 	if n.DotControl == 25 || n.DotControl == 29 {
 		dur.Dots = 1
 	}
@@ -69,13 +126,13 @@ func BasePitch(clefType byte) lily.Pitch {
 }
 	
 
-func ConvertStaff(elems []MeasElem, clefType byte) lily.Elem {
+func ConvertStaff(elems []linkedMeasElem, clefType byte) lily.Elem {
 	seq := lily.Seq{}
 	basePitch := BasePitch(clefType)
 	lastTick := -1
 	var lastNote *lily.Chord
 	var articulations []string 
-	for _, e := range elems {
+	for i, e := range elems {
 		if e.GetTick() != lastTick && lastNote != nil {
 			lastNote.PostEvents = articulations
 			articulations = nil
@@ -84,8 +141,15 @@ func ConvertStaff(elems []MeasElem, clefType byte) lily.Elem {
 		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
 			seq.Elems = append(seq.Elems, &lily.BarCheck{})
 		}
+
+		if i == 0 || (e.GetTick() == 0 && elems[i-1].measure.TimeSignature() != e.measure.TimeSignature()) {
+			seq.Elems = append(seq.Elems, &lily.TimeSignature{
+				Num: int(e.measure.TimeSigNum),
+				Den: int(e.measure.TimeSigDen),
+			})
+		}
 		
-		switch t := e.(type) {
+		switch t := e.MeasElem.(type) {
 		case *Tie:
 			if lastNote == nil {
 				log.Println("no last for tie ", lastTick)

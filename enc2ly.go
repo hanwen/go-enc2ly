@@ -89,6 +89,10 @@ type Measure struct {
 	Elems []MeasElem
 }
 
+func (m *Measure) TimeSignature() string {
+	return fmt.Sprintf("%d/%d", m.TimeSigNum, m.TimeSigDen)
+}
+
 type Staff struct {
 	Offset int
 
@@ -132,6 +136,7 @@ type MeasElem interface {
 	Sz() int
 	GetType() int
 	GetTypeName() string
+	Voice() int
 }
 
 // Voice (1-8) should be somewhere too.
@@ -146,6 +151,11 @@ type MeasElemBase struct {
 	Staff byte `offset:"4"`
 }
 
+func (n *MeasElemBase) Voice() int {
+	return int(n.Type & 0xf)
+}
+
+
 func (n *MeasElemBase) GetDurationTick() int {
 	return 0
 }
@@ -159,7 +169,7 @@ func (n *MeasElemBase) GetTick() int {
 }
 
 func (n *MeasElemBase) GetType() int {
-	return int(n.Type)
+	return int(n.Type) >> 4
 }
 
 func (n *MeasElemBase) Sz() int {
@@ -215,8 +225,13 @@ type Note struct {
 	ArticulationDown byte `offset:"26"`
 }
 
+
 func (n *Note) GetDurationTick() int {
 	return int(n.DurationTicks)
+}
+
+func (n *Note) DurationLog() int {
+	return int(n.FaceValue & 0xf) - 1
 }
 
 func (n *Note) Alteration() int {

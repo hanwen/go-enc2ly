@@ -25,6 +25,10 @@ func (d *Duration) String() string {
 	if n == "" {
 		i := uint(1)
 		i <<= uint(d.DurationLog)
+		if i == 0 {
+			panic(d.DurationLog)
+		}
+			
 		n = fmt.Sprintf("%d", i)
 	}
 
@@ -39,6 +43,14 @@ type BarCheck struct {}
 
 func (b *BarCheck) String() string {
 	return "|\n"
+}
+
+type TimeSignature struct {
+	Num, Den int
+}
+
+func (t *TimeSignature) String() string {
+	return fmt.Sprintf("\\time %d/%d", t.Num, t.Den)
 }
 
 type Pitch struct  {
@@ -133,7 +145,7 @@ type Seq struct {
 }
 
 func (s *Seq) String() string {
-	return fmt.Sprintf("{ %s }", s.Compound.String())
+	return fmt.Sprintf("{\n%s\n}\n", s.Compound.String())
 }
 
 type Par struct {
