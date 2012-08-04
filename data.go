@@ -66,7 +66,7 @@ type Measure struct {
 	BarTypeEnd byte `offset:"21"`
 	VarData []byte
 	
-	Elems   []MeasElem
+	Elems   []*MeasElem
 }
 
 func (m *Measure) TimeSignature() string {
@@ -107,65 +107,67 @@ type StaffData struct {
 	// 205 ?
 }
 
-type MeasElem interface {
-	GetTick() int
+type MeasElemSpecific interface {
 	GetDurationTick() int
-	GetRaw() []byte
-	GetStaff() int
-	GetOffset() int
-	Sz() int
-	GetType() int
 	GetTypeName() string
-	Voice() int
 }
 
-// Voice (1-8) should be somewhere too.
-type MeasElemBase struct {
+type NoDuration struct {}
+
+func (n *NoDuration) GetDurationTick() int {
+	return 0
+}
+
+type MeasElem struct {
 	Raw []byte
 	Offset int
 	Tick  uint16 `offset:"0"`
 
 	// type << 4 | voice
-	Type  byte `offset:"2"`
+	TypeVoice  byte `offset:"2"`
 	Size  byte `offset:"3"`
 	Staff byte `offset:"4"`
+
+	TypeSpecific MeasElemSpecific
 }
 
-func (n *MeasElemBase) Voice() int {
-	return int(n.Type & 0xf)
+func (n *MeasElem) GetTypeName() string {
+	return n.TypeSpecific.GetTypeName()
 }
 
-
-func (n *MeasElemBase) GetDurationTick() int {
-	return 0
+func (n *MeasElem) GetDurationTick() int {
+	return n.TypeSpecific.GetDurationTick()
 }
 
-func (n *MeasElemBase) GetRaw() []byte {
+func (n *MeasElem) Voice() int {
+	return int(n.TypeVoice & 0xf)
+}
+
+func (n *MeasElem) GetRaw() []byte {
 	return n.Raw
 }
 
-func (n *MeasElemBase) GetTick() int {
+func (n *MeasElem) GetTick() int {
 	return int(n.Tick)
 }
 
-func (n *MeasElemBase) GetType() int {
-	return int(n.Type) >> 4
+func (n *MeasElem) GetType() int {
+	return int(n.TypeVoice) >> 4
 }
 
-func (n *MeasElemBase) Sz() int {
+func (n *MeasElem) Sz() int {
 	return len(n.Raw)
 }
 
-func (n *MeasElemBase) GetStaff() int {
+func (n *MeasElem) GetStaff() int {
 	return int(n.Staff)
 }
 
-func (n *MeasElemBase) GetOffset() int {
+func (n *MeasElem) GetOffset() int {
 	return int(n.Offset)
 }
 
 type Note struct {
-	MeasElemBase
 	// 4 = 8th, 3=quarter, 2=half, etc.
 	//
 	// hi nibble has notehead type.
@@ -229,7 +231,7 @@ func (o *Note) GetTypeName() string {
 }
 
 type Slur struct {
-	MeasElemBase
+	NoDuration
 	
 	// 33 = slur, 16=8va, ... ?
 	SlurType  byte `offset:"5"`
@@ -247,7 +249,7 @@ func (o *Slur) GetTypeName() string {
 }
 
 type KeyChange struct {
-	MeasElemBase
+	NoDuration
 	NewKey byte  `offset:"5"`
 	OldKey byte  `offset:"10"`
 }
@@ -257,7 +259,7 @@ func (o *KeyChange) GetTypeName() string {
 }
 
 type Other struct {
-	MeasElemBase
+	NoDuration
 }
 
 func (o *Other) GetTypeName() string {
@@ -265,7 +267,7 @@ func (o *Other) GetTypeName() string {
 }
 
 type Script struct {
-	MeasElemBase
+	NoDuration
 	XOff byte `offset:"10"`
 }
 
@@ -274,7 +276,7 @@ func (o *Script) GetTypeName() string {
 }
 
 type Clef struct {
-	MeasElemBase
+	NoDuration
 	ClefType byte `offset:"5"`
 	XOff byte `offset:"10"`
 }
@@ -285,7 +287,7 @@ func (o *Clef) GetTypeName() string {
 
 // Also used for tuplet bracket.
 type Beam struct {
-	MeasElemBase
+	NoDuration
 	LeftPos int8 `offset:"18"` 
 	RightPos int8 `offset:"19"` 
 }
@@ -295,8 +297,6 @@ func (o *Beam) GetTypeName() string {
 }
 
 type Rest struct {
-	MeasElemBase
-
 	// see Note for more explanation. 
 	FaceValue     byte `offset:"5"`
 	XOffset    byte `offset:"10"`
@@ -315,7 +315,7 @@ func (o *Rest) GetTypeName() string {
 }
 
 type Tie struct {
-	MeasElemBase
+	NoDuration
 	// offset: 5 - vertical, staff ?
 	// 4=>whole, 7 => 8th -> ? 
 	LeftDurationType byte `offset:"5"` 

@@ -35,7 +35,9 @@ func (l *Line) ReadStaffs() {
 	}
 }
 
-func readElem(c []byte, off int) (e MeasElem) {
+func readElem(c []byte, off int) (result *MeasElem) {
+	result = new(MeasElem)
+	var e MeasElemSpecific 
 	switch (c[2] >> 4) {
 	case 1:
 		e = &Clef{}
@@ -50,7 +52,7 @@ func readElem(c []byte, off int) (e MeasElem) {
 		case 16:
 			e = &Script{}
 		case 86:
-			// todo - 
+			e = &Other{}
 		case 28:
 			e = &Slur{}
 		}
@@ -58,16 +60,14 @@ func readElem(c []byte, off int) (e MeasElem) {
 		e = &Rest{}
 	case 9:
 		e = &Note{}
-	}
-	
-	if e == nil {
+	default:
 		e = &Other{}
 	}
-	
-	FillBlock(c, off, e)
-	return e
+	FillBlock(c, off, result)
+	result.TypeSpecific = e
+	FillFields(c, e)
+	return result
 }
-
 
 var endMarker = string([]byte{255,255})
 
@@ -93,6 +93,7 @@ func (m *Measure) ReadElems() {
 	}
 }
 
+// Like FillFields, but fill Raw/Offset too.
 func FillBlock(raw []byte, offset int, dest interface{}) {
 	v := reflect.ValueOf(dest).Elem()
 	byteOffAddr := v.FieldByName("Offset").Addr().Interface().(*int)

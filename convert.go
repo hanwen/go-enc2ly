@@ -43,7 +43,7 @@ func priority(e linkedMeasElem) int {
 }
 
 type linkedMeasElem struct {
-	MeasElem
+	*MeasElem
 
 	measure *Measure
 	staff   *Staff
@@ -176,7 +176,7 @@ func ConvertStaff(elems []linkedMeasElem, clefType byte) lily.Elem {
 			})
 		}
 		
-		switch t := e.MeasElem.(type) {
+		switch t := e.MeasElem.TypeSpecific.(type) {
 		case *Tie:
 			if lastNote == nil {
 				log.Println("no last for tie ", lastTick)
