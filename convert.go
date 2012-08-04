@@ -6,6 +6,9 @@ import (
 	"sort"
 )
 
+// TODO - tuplets.
+// TODO - gaps.
+
 type ElemSequence []linkedMeasElem
 func (e ElemSequence) Len() int {
 	return len(e)
@@ -44,12 +47,24 @@ type linkedMeasElem struct {
 	staff   *Staff
 }
 
+type idKey struct {
+	staff int
+	voice int
+}
+
+func (i *idKey) String() string {
+	return fmt.Sprintf("staff%svoice%s", Int2Letter(i.staff), Int2Letter(i.voice))
+}
+	
 func Convert(data *Data) {
-	staves := map[int][]linkedMeasElem{}
+	staves := map[idKey][]linkedMeasElem{}
 	for _, m := range data.Measures {
-		measStaves := map[int][]linkedMeasElem{}
+		measStaves := map[idKey][]linkedMeasElem{}
 		for _, e := range m.Elems {
-			key := e.Voice() + e.GetStaff() << 4
+			key := idKey{
+				staff: e.GetStaff(),
+				voice: e.Voice(),
+			}
 			l := linkedMeasElem{
 				MeasElem: e,
 				measure: &m,
@@ -64,12 +79,22 @@ func Convert(data *Data) {
 		}
 	}
 
-	for idx, elems := range staves {
-		seq := ConvertStaff(elems, data.Staff[idx].Clef)
-		staff := idx >> 4
-		voice := idx & 0xf
- 		fmt.Printf("staff%svoice%s = %v\n", Int2Letter(staff), Int2Letter(voice), seq)
+	staffVoiceMap := map[int][]idKey{}
+	for k, elems := range staves {
+		seq := ConvertStaff(elems, data.Staff[k.staff].Clef)
+ 		fmt.Printf("%v = %v\n", k.String(), seq)
+		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
 	}
+
+	fmt.Printf("<<\n")
+	for _, voices := range staffVoiceMap {
+		fmt.Printf("  \\new Staff << \n")
+		for _, voice := range voices {
+			fmt.Printf("  \\new Voice \\%s\n", voice.String())
+		}
+		fmt.Printf(">>\n")
+	}
+	fmt.Printf(">>\n")
 }
 
 func ConvertRest(n *Rest) (dur lily.Duration) {
