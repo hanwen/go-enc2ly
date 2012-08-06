@@ -185,7 +185,7 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 	var currentTuplet *lily.Tuplet
 	for i, e := range elems {
 		if e.AbsTick() != lastTick && lastNote != nil {
-			lastNote.PostEvents = articulations
+			lastNote.PostEvents = append(lastNote.PostEvents, articulations...)
 			articulations = nil
 		}
 
@@ -264,6 +264,9 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 		case *encore.KeyChange:
 			seq.Elems = append(seq.Elems, ConvertKey(t.NewKey))
 		}
+	}
+	if lastNote != nil {
+		lastNote.PostEvents = append(lastNote.PostEvents, articulations...)
 	}
 	return baseSeq
 }
