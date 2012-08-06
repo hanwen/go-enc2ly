@@ -76,7 +76,7 @@ func Convert(data *encore.Data) {
 		sort.Sort(ElemSequence(v))
 	}
 
-	staffVoiceMap := map[int][]idKey{}
+	staffVoiceMap := make([][]idKey, len(data.Staff))
 	for k, elems := range staves {
 		seq := ConvertStaff(elems)
 		fmt.Printf("%v = %v\n", k.String(), seq)
