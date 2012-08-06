@@ -195,3 +195,11 @@ type KeySignature struct {
 func (k *KeySignature) String() string {
 	return fmt.Sprintf("\\key %s \\%s", k.Name, k.ScaleType)
 }
+
+type Clef struct {
+	Name string
+}
+
+func (c *Clef) String() string {
+	return fmt.Sprintf("\\clef \"%s\"", c.Name)
+}

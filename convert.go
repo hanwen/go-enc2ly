@@ -94,6 +94,26 @@ func Convert(data *encore.Data) {
 	fmt.Printf(">>\n")
 }
 
+func ConvertClef(key byte) *lily.Clef {
+	s := ""
+	switch key {
+	case 0:
+		s = "G"
+	case 1:
+		s = "F"
+	case 2:
+		s = "C"
+	case 3:
+		s = "tenor"
+	case 4:
+		s = "G^8"
+	case 5:
+		s = "G_8"
+	}
+
+	return &lily.Clef{Name: s}
+}
+
 func ConvertKey(key byte) *lily.KeySignature {
 	names := []string{
 		"c", "f", "bes",
@@ -207,7 +227,9 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 		}
 		if i == 0 {
 			seq.Elems = append(seq.Elems,
-				ConvertKey(e.LineStaffData.Key))
+				ConvertKey(e.LineStaffData.Key),
+				ConvertClef(e.LineStaffData.Clef),
+				)
 		}
 		
 		if i > 0 && nextTick < e.AbsTick() {
