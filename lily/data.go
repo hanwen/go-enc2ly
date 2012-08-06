@@ -143,6 +143,17 @@ func (r *Rest) String() string {
 	return "r" + r.Duration.String()
 }
 
+type Tuplet struct {
+	Num int
+	Den int
+	Elem
+}
+
+func (t *Tuplet) String() string {
+	return fmt.Sprintf("\\times %d/%d %v",
+		t.Num, t.Den, t.Elem)
+}
+
 type Compound struct {
 	Elems []Elem
 }
@@ -153,6 +164,10 @@ func (s *Compound) String() string {
 		elts = append(elts, e.String())
 	}
 	return strings.Join(elts, " ")
+}
+
+func (c *Compound) Append(e Elem) {
+	c.Elems = append(c.Elems, e)
 }
 
 type Seq struct {

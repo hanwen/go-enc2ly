@@ -10,7 +10,8 @@ import (
 	"go-enc2ly/encore"
 )
 
-// TODO - tuplets.
+// TODO - bar lines
+// TODO - text elements
 // TODO - clef changes,
 
 type ElemSequence []*encore.MeasElem
@@ -29,16 +30,19 @@ func (e ElemSequence) Swap(i, j int) {
 
 func priority(e *encore.MeasElem) int {
 	prio := int(e.AbsTick()) << 10
-	switch e.GetType() {
-	case 8:
+	switch e.Type() {
+	case encore.TYPE_REST:
 		fallthrough
-	case 9:
+	case encore.TYPE_NOTE:
 		prio += 10
 
+	case encore.TYPE_BEAM:
+		// Before notes, so we catch tuplets.
+		prio += 5
 	// pref matter:
-	case 1:
+	case encore.TYPE_CLEF:
 		fallthrough
-	case 2:
+	case encore.TYPE_KEYCHANGE:
 		prio += 0
 
 	default:
@@ -162,18 +166,35 @@ func skipTicks(ticks int) *lily.Skip {
 	}
 }
 
+func setTuplet(t *lily.Tuplet, w *encore.WithDuration) {
+	if t != nil && t.Num == 0 {
+		t.Num = w.TupletNum()
+		t.Den = w.TupletDen()
+	}
+}
+
 func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
-	seq := lily.Seq{}
+	baseSeq := &lily.Seq{}
+	seq := baseSeq
+	
 	lastTick := -1
 	var lastNote *lily.Chord
 	var articulations []string
 	var nextTick int
+	var endTupletTick int
+	var currentTuplet *lily.Tuplet
 	for i, e := range elems {
-		if e.GetTick() != lastTick && lastNote != nil {
+		if e.AbsTick() != lastTick && lastNote != nil {
 			lastNote.PostEvents = articulations
 			articulations = nil
 		}
 
+		if currentTuplet != nil && e.AbsTick() > endTupletTick {
+			seq = baseSeq
+			currentTuplet = nil
+			endTupletTick = 0
+		}
+			
 		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
 			seq.Elems = append(seq.Elems, &lily.BarCheck{})
 		}
@@ -196,6 +217,17 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 
 		end := e.AbsTick() + e.GetDurationTick()
 		switch t := e.TypeSpecific.(type) {
+		case *encore.Beam:
+			if t.TupletNumber != 0 {
+				if currentTuplet != nil {
+					log.Panic("already have tuplet")
+				}
+				
+				endTupletTick = e.Measure.AbsTick + int(t.EndNoteTick)
+				seq = new(lily.Seq)
+				currentTuplet = &lily.Tuplet{Elem: seq}
+				baseSeq.Append(currentTuplet)
+			}
 		case *encore.Tie:
 			if lastNote == nil {
 				log.Println("no last for tie ", lastTick)
@@ -204,9 +236,9 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			}
 		case *encore.Note:
 			basePitch := BasePitch(e.LineStaffData.Clef)
-
+			setTuplet(currentTuplet, &t.WithDuration)
 			p, d := ConvertNote(t, basePitch)
-			if e.GetTick() == lastTick {
+			if e.AbsTick() == lastTick {
 				if lastNote == nil {
 					log.Println("no last note at ", lastTick)
 					continue
@@ -218,11 +250,12 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 				lastNote = &ch
 				seq.Elems = append(seq.Elems, lastNote)
 			}
-			lastTick = e.GetTick()
+			lastTick = e.AbsTick()
 			if end > nextTick {
 				nextTick = end
 			}
 		case *encore.Rest:
+			setTuplet(currentTuplet, &t.WithDuration)
 			d := ConvertRest(t)
 			seq.Elems = append(seq.Elems, &lily.Rest{d})
 			if end > nextTick {
@@ -232,5 +265,5 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			seq.Elems = append(seq.Elems, ConvertKey(t.NewKey))
 		}
 	}
-	return &seq
+	return baseSeq
 }

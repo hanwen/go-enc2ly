@@ -100,7 +100,7 @@ func analyzeMeasStaff(d *encore.Data) {
 func analyzeKeyCh(d *encore.Data) {
 	for i, m := range d.Measures {
 		for j, e := range m.Elems {
-			if e.GetType() == 32 {
+			if e.Type() == encore.TYPE_KEYCHANGE {
 				log.Printf("meas %d elt %d staff %d", i, j,
 					e.GetStaff())
 			}
@@ -117,7 +117,7 @@ func analyzeStaffdata(d *encore.Data) {
 func analyzeBeam(d *encore.Data) {
 	for _, m := range d.Measures {
 		for _, e := range m.Elems {
-			if e.GetTypeName() == "Beam" {
+			if e.Type() == encore.TYPE_BEAM {
 				fmt.Printf("meas %d %+v %+v\n", m.Id, e, e.TypeSpecific)
 				
 			}

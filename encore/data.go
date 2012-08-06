@@ -129,6 +129,7 @@ func (n *NoDuration) GetDurationTick() int {
 type MeasElem struct {
 	Raw    []byte
 	Offset int
+	// Relative to measure start.
 	Tick   uint16 `offset:"0"`
 
 	// type << 4 | voice
@@ -142,6 +143,19 @@ type MeasElem struct {
 	Staff         *Staff
 	LineStaffData *LineStaffData
 }
+
+const (
+	TYPE_NONE = iota
+	TYPE_CLEF = iota
+	TYPE_KEYCHANGE = iota
+	TYPE_TIE = iota
+	TYPE_BEAM = iota
+	TYPE_ORNAMENT = iota
+	TYPE_LYRIC = iota
+	TYPE_CHORD = iota
+	TYPE_REST = iota
+	TYPE_NOTE = iota
+)
 
 func (n *MeasElem) AbsTick() int {
 	return int(n.Tick) + n.Measure.AbsTick
@@ -167,7 +181,7 @@ func (n *MeasElem) GetTick() int {
 	return int(n.Tick)
 }
 
-func (n *MeasElem) GetType() int {
+func (n *MeasElem) Type() int {
 	return int(n.TypeVoice) >> 4
 }
 
@@ -289,11 +303,23 @@ func (o *Clef) GetTypeName() string {
 }
 
 // Also used for tuplet bracket.
+type SubBeam struct {
+	// maybe uint16 ?
+	StartX byte `offset:"0"`
+	EndX   byte `offset:"2"`
+}
+
 type Beam struct {
 	NoDuration
+
+	// The following fall are only populated in the first subbeam
 	LeftPos  int8 `offset:"18"`
 	RightPos int8 `offset:"19"`
-	EndNoteTicks uint16 `offset:"20"`
+	EndNoteTick uint16 `offset:"20"`
+	TupletNumber byte `offset:"23"`
+
+	// base size: 14, 16 bytes per beam (16th: 46 bytes)
+	SubBeams []SubBeam
 }
 
 func (o *Beam) GetTypeName() string {
@@ -310,6 +336,14 @@ type WithDuration struct {
 	// & 0x3: dotcount; &0x4: vertical dot position.
 	DotControl            byte   `offset:"14"`
 	PlaybackDurationTicks uint16 `offset:"16"`
+}
+
+func (w *WithDuration) TupletDen() int {
+	return int(w.Tuplet >> 4)
+}
+
+func (w *WithDuration) TupletNum() int {
+	return int(w.Tuplet & 0xf)
 }
 
 func (w *WithDuration) GetDurationTick() int {

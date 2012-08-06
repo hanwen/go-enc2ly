@@ -37,17 +37,19 @@ func (l *Line) ReadStaffs() {
 
 func readElem(c []byte, off int) (result *MeasElem) {
 	result = new(MeasElem)
+	FillBlock(c, off, result)
+	
 	var e MeasElemSpecific
-	switch c[2] >> 4 {
-	case 1:
+	switch result.Type() {
+	case TYPE_CLEF:
 		e = &Clef{}
-	case 2:
+	case TYPE_KEYCHANGE:
 		e = &KeyChange{}
-	case 3:
+	case TYPE_TIE:
 		e = &Tie{}
-	case 4:
+	case TYPE_BEAM:
 		e = &Beam{}
-	case 5:
+	case TYPE_ORNAMENT:
 		switch c[3] {
 		case 16:
 			e = &Script{}
@@ -56,16 +58,22 @@ func readElem(c []byte, off int) (result *MeasElem) {
 		case 28:
 			e = &Slur{}
 		}
-	case 8:
+	case TYPE_REST:
 		e = &Rest{}
-	case 9:
+	case TYPE_NOTE:
 		e = &Note{}
 	default:
 		e = &Other{}
 	}
-	FillBlock(c, off, result)
 	result.TypeSpecific = e
 	FillFields(c, e)
+	if result.Type() == 4 {
+		b := e.(*Beam)
+		b.SubBeams = make([]SubBeam, (result.Size - 14)/16)
+		for i := range b.SubBeams {
+			FillFields(result.Raw[14+16*i:], &b.SubBeams[i])
+		}
+	}
 	return result
 }
 
