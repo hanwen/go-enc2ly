@@ -10,7 +10,6 @@ import (
 	"go-enc2ly/encore"
 )
 
-// TODO - bar lines
 // TODO - text elements
 // TODO - clef changes,
 
@@ -126,6 +125,31 @@ func ConvertKey(key byte) *lily.KeySignature {
 	}	
 }
 
+func convertBarType(end byte, start byte) string {
+	switch start {
+	case 2:
+		if end == 4 {
+			return ":|:"
+		} else {
+			return "|:"
+		}
+	case 1:
+		return "|."
+	case 3:
+		return "||"
+	case 8:
+		return ":"
+	case 0:
+		if end == 4 {
+			return ":|"
+		} else {
+			return "|"
+		}
+	}
+	return ""
+}
+
+
 func ConvertRest(n *encore.Rest) (dur lily.Duration) {
 	dur.DurationLog = int(n.FaceValue) - 1
 	if n.DotControl == 25 || n.DotControl == 29 {
@@ -218,7 +242,16 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
 			seq.Elems = append(seq.Elems, &lily.BarCheck{})
 		}
-
+		if i == 0 || e.Measure != elems[i-1].Measure && e.GetTick() == 0 {
+			var last byte
+			if i > 0 {
+				last = elems[i-1].Measure.BarTypeEnd
+			}
+			barType := convertBarType(last, e.Measure.BarTypeStart)
+			if barType != "|" {
+				seq.Append(&lily.Bar{Name: barType})
+			}
+		}
 		if i == 0 || (e.GetTick() == 0 && elems[i-1].Measure.TimeSignature() != e.Measure.TimeSignature()) {
 			seq.Elems = append(seq.Elems, &lily.TimeSignature{
 				Num: int(e.Measure.TimeSigNum),

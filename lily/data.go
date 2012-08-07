@@ -203,3 +203,11 @@ type Clef struct {
 func (c *Clef) String() string {
 	return fmt.Sprintf("\\clef \"%s\"", c.Name)
 }
+
+type Bar struct {
+	Name string
+}
+
+func (b *Bar) String() string {
+	return fmt.Sprintf("\\bar \"%s\"", b.Name)
+}

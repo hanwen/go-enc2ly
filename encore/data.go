@@ -145,16 +145,16 @@ type MeasElem struct {
 }
 
 const (
-	TYPE_NONE = iota
-	TYPE_CLEF = iota
-	TYPE_KEYCHANGE = iota
-	TYPE_TIE = iota
-	TYPE_BEAM = iota
-	TYPE_ORNAMENT = iota
-	TYPE_LYRIC = iota
-	TYPE_CHORD = iota
-	TYPE_REST = iota
-	TYPE_NOTE = iota
+	TYPE_NONE = iota // 0 
+	TYPE_CLEF = 1
+	TYPE_KEYCHANGE = 2
+	TYPE_TIE = 3
+	TYPE_BEAM = 4
+	TYPE_ORNAMENT = 5
+	TYPE_LYRIC = 6
+	TYPE_CHORD = 7
+	TYPE_REST = 8
+	TYPE_NOTE = 9
 )
 
 func (n *MeasElem) AbsTick() int {

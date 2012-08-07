@@ -19,10 +19,11 @@ func analyze(d *encore.Data) {
 	//	analyzeAll(d)
 	//	analyzeStaff(d)
 	//	analyzeMeasStaff(d)
+	analyzeMeas(d)
 	//		analyzeStaffdata(d)
 	//		analyzeStaffHeader(d)	
 //	analyzeLine(d)
-	analyzeBeam(d)	
+//	analyzeBeam(d)	
 }
 
 func analyzeTags(content []byte) {
@@ -86,6 +87,12 @@ func analyzeStaff(d *encore.Data) {
 				fmt.Printf("%+v\n", e)
 			}
 		}
+	}
+}
+
+func analyzeMeas(d *encore.Data) {
+	for i, m := range d.Measures {
+		fmt.Printf("meas %d: start %d end %d\n", i, m.BarTypeStart, m.BarTypeEnd)
 	}
 }
 
