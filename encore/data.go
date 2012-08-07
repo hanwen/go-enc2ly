@@ -261,7 +261,8 @@ type Slur struct {
 	LeftPosition   byte `offset:"12"`
 	MiddleX        byte `offset:"14"`
 	MiddlePosition byte `offset:"16"`
-	RightX         byte `offset: "20"`
+	MeasureDelta   byte `offset:"18"`
+	RightX         byte `offset:"20"`
 	RightPosition  byte `offset:"22"`
 }
 
