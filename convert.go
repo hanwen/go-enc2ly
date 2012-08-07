@@ -241,7 +241,7 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 		}
 			
 		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
-			seq.Elems = append(seq.Elems, &lily.BarCheck{})
+			seq.Append(&lily.BarCheck{})
 		}
 		if i == 0 || e.Measure != elems[i-1].Measure && e.GetTick() == 0 {
 			var last byte
@@ -268,20 +268,18 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			}
 		}
 		if i == 0 || (e.GetTick() == 0 && elems[i-1].Measure.TimeSignature() != e.Measure.TimeSignature()) {
-			seq.Elems = append(seq.Elems, &lily.TimeSignature{
+			seq.Append(&lily.TimeSignature{
 				Num: int(e.Measure.TimeSigNum),
 				Den: int(e.Measure.TimeSigDen),
 			})
 		}
 		if i == 0 {
-			seq.Elems = append(seq.Elems,
-				ConvertKey(e.LineStaffData.Key),
-				ConvertClef(e.LineStaffData.Clef),
-				)
+			seq.Append(ConvertKey(e.LineStaffData.Key))
+			seq.Append(ConvertClef(e.LineStaffData.Clef))
 		}
 		
 		if i > 0 && nextTick < e.AbsTick() {
-			seq.Elems = append(seq.Elems, skipTicks(e.AbsTick()-nextTick))
+			seq.Append(skipTicks(e.AbsTick()-nextTick))
 			nextTick = e.AbsTick()
 		}
 
@@ -318,7 +316,7 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 				ch := lily.Chord{Duration: d}
 				ch.Pitch = append(ch.Pitch, p)
 				lastNote = &ch
-				seq.Elems = append(seq.Elems, lastNote)
+				seq.Append(lastNote)
 			}
 			lastTick = e.AbsTick()
 			if end > nextTick {
@@ -327,12 +325,12 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 		case *encore.Rest:
 			setTuplet(currentTuplet, &t.WithDuration)
 			d := ConvertRest(t)
-			seq.Elems = append(seq.Elems, &lily.Rest{d})
+			seq.Append(&lily.Rest{d})
 			if end > nextTick {
 				nextTick = end
 			}
 		case *encore.KeyChange:
-			seq.Elems = append(seq.Elems, ConvertKey(t.NewKey))
+			seq.Append(ConvertKey(t.NewKey))
 		}
 	}
 	if lastNote != nil {
