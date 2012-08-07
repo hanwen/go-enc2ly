@@ -13,17 +13,17 @@ import (
 // TODO - text elements
 // TODO - clef changes,
 
-type ElemSequence []*encore.MeasElem
+type elemSequence []*encore.MeasElem
 
-func (e ElemSequence) Len() int {
+func (e elemSequence) Len() int {
 	return len(e)
 }
 
-func (e ElemSequence) Less(i, j int) bool {
+func (e elemSequence) Less(i, j int) bool {
 	return priority(e[i]) < priority(e[j])
 }
 
-func (e ElemSequence) Swap(i, j int) {
+func (e elemSequence) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
@@ -72,12 +72,12 @@ func Convert(data *encore.Data) {
 		}
 	}
 	for _, v := range staves {
-		sort.Sort(ElemSequence(v))
+		sort.Sort(elemSequence(v))
 	}
 
 	staffVoiceMap := make([][]idKey, len(data.Staff))
 	for k, elems := range staves {
-		seq := ConvertStaff(elems)
+		seq := convertStaff(elems)
 		fmt.Printf("%v = %v\n", k.String(), seq)
 		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
 	}
@@ -93,7 +93,7 @@ func Convert(data *encore.Data) {
 	fmt.Printf(">>\n")
 }
 
-func ConvertClef(key byte) *lily.Clef {
+func convertClef(key byte) *lily.Clef {
 	s := ""
 	switch key {
 	case 0:
@@ -113,7 +113,7 @@ func ConvertClef(key byte) *lily.Clef {
 	return &lily.Clef{Name: s}
 }
 
-func ConvertKey(key byte) *lily.KeySignature {
+func convertKey(key byte) *lily.KeySignature {
 	names := []string{
 		"c", "f", "bes",
 		"es", "as", "des", "ges", "ces", "g", "d", "a", "e", "b",
@@ -150,7 +150,7 @@ func convertBarType(end byte, start byte) string {
 }
 
 
-func ConvertRest(n *encore.Rest) (dur lily.Duration) {
+func convertRest(n *encore.Rest) (dur lily.Duration) {
 	dur.DurationLog = int(n.FaceValue) - 1
 	if n.DotControl == 25 || n.DotControl == 29 {
 		dur.Dots = 1
@@ -162,7 +162,7 @@ func Int2Letter(a int) string {
 	return string(byte(a) + 'A')
 }
 
-func ConvertNote(n *encore.Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
+func convertNote(n *encore.Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
 	dur.DurationLog = n.DurationLog()
 	if n.DotControl == 25 || n.DotControl == 29 {
 		dur.Dots = 1
@@ -175,7 +175,7 @@ func ConvertNote(n *encore.Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.
 }
 
 // Returns the pitch for ledger line below staff.
-func BasePitch(clefType byte) lily.Pitch {
+func basePitch(clefType byte) lily.Pitch {
 	switch clefType {
 	case 0:
 		return lily.Pitch{
@@ -217,7 +217,7 @@ func setTuplet(t *lily.Tuplet, w *encore.WithDuration) {
 	}
 }
 
-func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
+func convertStaff(elems []*encore.MeasElem) lily.Elem {
 	baseSeq := &lily.Seq{}
 	seq := baseSeq
 	
@@ -274,8 +274,8 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			})
 		}
 		if i == 0 {
-			seq.Append(ConvertKey(e.LineStaffData.Key))
-			seq.Append(ConvertClef(e.LineStaffData.Clef))
+			seq.Append(convertKey(e.LineStaffData.Key))
+			seq.Append(convertClef(e.LineStaffData.Clef))
 		}
 		
 		if i > 0 && nextTick < e.AbsTick() {
@@ -303,9 +303,8 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 				articulations = append(articulations, "~")
 			}
 		case *encore.Note:
-			basePitch := BasePitch(e.LineStaffData.Clef)
 			setTuplet(currentTuplet, &t.WithDuration)
-			p, d := ConvertNote(t, basePitch)
+			p, d := convertNote(t, basePitch(e.LineStaffData.Clef))
 			if e.AbsTick() == lastTick {
 				if lastNote == nil {
 					log.Println("no last note at ", lastTick)
@@ -324,13 +323,13 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			}
 		case *encore.Rest:
 			setTuplet(currentTuplet, &t.WithDuration)
-			d := ConvertRest(t)
+			d := convertRest(t)
 			seq.Append(&lily.Rest{d})
 			if end > nextTick {
 				nextTick = end
 			}
 		case *encore.KeyChange:
-			seq.Append(ConvertKey(t.NewKey))
+			seq.Append(convertKey(t.NewKey))
 		}
 	}
 	if lastNote != nil {
