@@ -22,8 +22,8 @@ func analyze(d *encore.Data) {
 	analyzeMeas(d)
 	//		analyzeStaffdata(d)
 	//		analyzeStaffHeader(d)	
-//	analyzeLine(d)
-//	analyzeBeam(d)	
+	//	analyzeLine(d)
+	//	analyzeBeam(d)	
 }
 
 func analyzeTags(content []byte) {
@@ -126,7 +126,7 @@ func analyzeBeam(d *encore.Data) {
 		for _, e := range m.Elems {
 			if e.Type() == encore.TYPE_BEAM {
 				fmt.Printf("meas %d %+v %+v\n", m.Id, e, e.TypeSpecific)
-				
+
 			}
 		}
 	}

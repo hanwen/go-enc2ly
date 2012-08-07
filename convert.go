@@ -141,12 +141,12 @@ func convertKey(key byte) *lily.KeySignature {
 	names := []string{
 		"c", "f", "bes",
 		"es", "as", "des", "ges", "ces", "g", "d", "a", "e", "b",
-		"fis", "cis", }
+		"fis", "cis"}
 
 	return &lily.KeySignature{
-		Name: names[key],
+		Name:      names[key],
 		ScaleType: "major",
-	}	
+	}
 }
 
 func convertBarType(end byte, start byte) string {
@@ -172,7 +172,6 @@ func convertBarType(end byte, start byte) string {
 	}
 	return ""
 }
-
 
 func convertRest(n *encore.Rest) (dur lily.Duration) {
 	dur.DurationLog = int(n.FaceValue) - 1
@@ -244,7 +243,7 @@ func setTuplet(t *lily.Tuplet, w *encore.WithDuration) {
 func convertStaff(elems []*encore.MeasElem) lily.Elem {
 	baseSeq := &lily.Seq{}
 	seq := baseSeq
-	
+
 	lastTick := -1
 	var lastNote *lily.Chord
 	var articulations []string
@@ -267,7 +266,7 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 		if e.GetTick() == 0 && e.AbsTick() > lastTick && e.GetDurationTick() > 0 {
 			seq.Append(&lily.BarCheck{})
 		}
-		
+
 		if i == 0 || e.Measure != elems[i-1].Measure && e.GetTick() == 0 {
 			var last byte
 			if i > 0 {
@@ -285,8 +284,8 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 				}
 				r := &lily.PropertySet{
 					Context: "Score",
-					Name: "repeatCommands",
-					Value: val,
+					Name:    "repeatCommands",
+					Value:   val,
 				}
 				seq.Append(r)
 				currentVolta = volta
@@ -302,9 +301,9 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 			seq.Append(convertKey(e.LineStaffData.Key))
 			seq.Append(convertClef(e.LineStaffData.Clef))
 		}
-		
+
 		if nextTick < e.AbsTick() {
-			seq.Append(skipTicks(e.AbsTick()-nextTick))
+			seq.Append(skipTicks(e.AbsTick() - nextTick))
 			nextTick = e.AbsTick()
 		}
 
@@ -315,7 +314,7 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 				if currentTuplet != nil {
 					log.Panic("already have tuplet")
 				}
-				
+
 				endTupletTick = e.Measure.AbsTick + int(t.EndNoteTick)
 				seq = new(lily.Seq)
 				currentTuplet = &lily.Tuplet{Elem: seq}

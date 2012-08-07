@@ -38,7 +38,7 @@ func (l *Line) readStaffs() {
 func readElem(c []byte, off int) (result *MeasElem) {
 	result = new(MeasElem)
 	fillBlock(c, off, result)
-	
+
 	var e MeasElemSpecific
 	switch result.Type() {
 	case TYPE_CLEF:
@@ -70,7 +70,7 @@ func readElem(c []byte, off int) (result *MeasElem) {
 	fillFields(c, e)
 	if result.Type() == TYPE_BEAM {
 		b := e.(*Beam)
-		b.SubBeams = make([]SubBeam, (result.Size - 14)/16)
+		b.SubBeams = make([]SubBeam, (result.Size-14)/16)
 		for i := range b.SubBeams {
 			fillFields(result.Raw[14+16*i:], &b.SubBeams[i])
 		}

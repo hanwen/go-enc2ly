@@ -61,20 +61,20 @@ type Measure struct {
 	Offset int
 	Raw    []byte `want:"MEAS" fixed:"62"`
 
-	VarSize      int32  `offset:"4"`
-	Bpm          uint16 `offset:"8"`
-	TimeSigGlyph byte   `offset:"10"`
-	BeatTicks    uint16 `offset:"12"`
-	DurTicks     uint16 `offset:"14"`
-	TimeSigNum   byte   `offset:"16"`
-	TimeSigDen   byte   `offset:"17"`
-	BarTypeStart byte   `offset:"20"`
-	BarTypeEnd   byte   `offset:"21"`
-	RepeatMarker byte   `offset:"22"`
-	RepeatAlternative byte `offset:"23"`
-	Coda         uint32  `offset:"33"`
-	
-	VarData      []byte
+	VarSize           int32  `offset:"4"`
+	Bpm               uint16 `offset:"8"`
+	TimeSigGlyph      byte   `offset:"10"`
+	BeatTicks         uint16 `offset:"12"`
+	DurTicks          uint16 `offset:"14"`
+	TimeSigNum        byte   `offset:"16"`
+	TimeSigDen        byte   `offset:"17"`
+	BarTypeStart      byte   `offset:"20"`
+	BarTypeEnd        byte   `offset:"21"`
+	RepeatMarker      byte   `offset:"22"`
+	RepeatAlternative byte   `offset:"23"`
+	Coda              uint32 `offset:"33"`
+
+	VarData []byte
 
 	Elems   []*MeasElem
 	AbsTick int
@@ -134,7 +134,7 @@ type MeasElem struct {
 	Raw    []byte
 	Offset int
 	// Relative to measure start.
-	Tick   uint16 `offset:"0"`
+	Tick uint16 `offset:"0"`
 
 	// type << 4 | voice
 	TypeVoice byte `offset:"2"`
@@ -149,16 +149,16 @@ type MeasElem struct {
 }
 
 const (
-	TYPE_NONE = iota // 0 
-	TYPE_CLEF = 1
+	TYPE_NONE      = iota // 0 
+	TYPE_CLEF      = 1
 	TYPE_KEYCHANGE = 2
-	TYPE_TIE = 3
-	TYPE_BEAM = 4
-	TYPE_ORNAMENT = 5
-	TYPE_LYRIC = 6
-	TYPE_CHORD = 7
-	TYPE_REST = 8
-	TYPE_NOTE = 9
+	TYPE_TIE       = 3
+	TYPE_BEAM      = 4
+	TYPE_ORNAMENT  = 5
+	TYPE_LYRIC     = 6
+	TYPE_CHORD     = 7
+	TYPE_REST      = 8
+	TYPE_NOTE      = 9
 )
 
 func (n *MeasElem) AbsTick() int {
@@ -318,10 +318,10 @@ type Beam struct {
 	NoDuration
 
 	// The following fall are only populated in the first subbeam
-	LeftPos  int8 `offset:"18"`
-	RightPos int8 `offset:"19"`
-	EndNoteTick uint16 `offset:"20"`
-	TupletNumber byte `offset:"23"`
+	LeftPos      int8   `offset:"18"`
+	RightPos     int8   `offset:"19"`
+	EndNoteTick  uint16 `offset:"20"`
+	TupletNumber byte   `offset:"23"`
 
 	// base size: 14, 16 bytes per beam (16th: 46 bytes)
 	SubBeams []SubBeam

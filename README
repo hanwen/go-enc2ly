@@ -1,7 +1,7 @@
-enc2ly is a Go tool that reads Encore files. It was created using
-Felipe Castro's (fefcas@gmail.com) research and reverse engineering by
-tweaking existing .enc files and loading them using the 4.55 demo
-version.
+enc2ly is a Go tool that converts Encore files to LilyPond. It was
+created using Felipe Castro's (fefcas@gmail.com) research and reverse
+engineering by tweaking existing .enc files and loading them using the
+4.55 demo version.
 
 
 COMPILATION

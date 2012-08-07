@@ -188,7 +188,7 @@ func (s *Par) String() string {
 
 type KeySignature struct {
 	// TODO - should use pitch instead.
-	Name string
+	Name      string
 	ScaleType string
 }
 
@@ -217,10 +217,9 @@ type PropertySet struct {
 	Name    string
 
 	// TODO - something more lispy? 
-	Value   string
+	Value string
 }
 
 func (p *PropertySet) String() string {
 	return fmt.Sprintf("\\set %s.%s = #%s", p.Context, p.Name, p.Value)
 }
-
