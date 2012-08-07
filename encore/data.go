@@ -70,6 +70,10 @@ type Measure struct {
 	TimeSigDen   byte   `offset:"17"`
 	BarTypeStart byte   `offset:"20"`
 	BarTypeEnd   byte   `offset:"21"`
+	RepeatMarker byte   `offset:"22"`
+	RepeatAlternative byte `offset:"23"`
+	Coda         uint32  `offset:"33"`
+	
 	VarData      []byte
 
 	Elems   []*MeasElem

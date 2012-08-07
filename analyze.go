@@ -92,7 +92,7 @@ func analyzeStaff(d *encore.Data) {
 
 func analyzeMeas(d *encore.Data) {
 	for i, m := range d.Measures {
-		fmt.Printf("meas %d: start %d end %d\n", i, m.BarTypeStart, m.BarTypeEnd)
+		fmt.Printf("meas %d: rep %d rep %d volta %x\n", i, m.RepeatMarker, m.RepeatAlternative, m.Coda)
 	}
 }
 

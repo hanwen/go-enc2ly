@@ -211,3 +211,16 @@ type Bar struct {
 func (b *Bar) String() string {
 	return fmt.Sprintf("\\bar \"%s\"", b.Name)
 }
+
+type PropertySet struct {
+	Context string
+	Name    string
+
+	// TODO - something more lispy? 
+	Value   string
+}
+
+func (p *PropertySet) String() string {
+	return fmt.Sprintf("\\set %s.%s = #%s", p.Context, p.Name, p.Value)
+}
+

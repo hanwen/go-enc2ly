@@ -28,7 +28,7 @@ func (e ElemSequence) Swap(i, j int) {
 }
 
 func priority(e *encore.MeasElem) int {
-	prio := int(e.AbsTick()) << 10
+	prio := e.AbsTick() << 10
 	switch e.Type() {
 	case encore.TYPE_REST:
 		fallthrough
@@ -227,6 +227,7 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 	var nextTick int
 	var endTupletTick int
 	var currentTuplet *lily.Tuplet
+	var currentVolta int
 	for i, e := range elems {
 		if e.AbsTick() != lastTick && lastNote != nil {
 			lastNote.PostEvents = append(lastNote.PostEvents, articulations...)
@@ -250,6 +251,20 @@ func ConvertStaff(elems []*encore.MeasElem) lily.Elem {
 			barType := convertBarType(last, e.Measure.BarTypeStart)
 			if barType != "|" {
 				seq.Append(&lily.Bar{Name: barType})
+			}
+
+			if volta := int(e.Measure.RepeatAlternative); volta != currentVolta {
+				val := "'((volta  #f))"
+				if volta > 0 {
+					val = fmt.Sprintf("'((volta \"%d\"))", volta)
+				}
+				r := &lily.PropertySet{
+					Context: "Score",
+					Name: "repeatCommands",
+					Value: val,
+				}
+				seq.Append(r)
+				currentVolta = volta
 			}
 		}
 		if i == 0 || (e.GetTick() == 0 && elems[i-1].Measure.TimeSignature() != e.Measure.TimeSignature()) {
