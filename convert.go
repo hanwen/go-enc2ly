@@ -11,6 +11,10 @@ import (
 )
 
 // TODO - text elements
+
+// TODO - slur elements
+// slurs are tricky: they are not explicitly linked to their encompassing notes.
+
 // TODO - clef changes,
 
 type elemSequence []*encore.MeasElem
