@@ -56,6 +56,23 @@ type idKey struct {
 	voice int
 }
 
+type idKeys []idKey
+
+func (e idKeys) Len() int {
+	return len(e)
+}
+
+func (e idKeys) Less(i, j int) bool {
+	if e[i].staff == e[j].staff {
+		return e[i].voice == e[j].voice
+	}
+	return e[i].staff < e[j].staff
+}
+
+func (e idKeys) Swap(i, j int) {
+	e[i], e[j] = e[j], e[i]
+}
+
 func (i *idKey) String() string {
 	return fmt.Sprintf("staff%svoice%s", Int2Letter(i.staff), Int2Letter(i.voice))
 }
@@ -71,12 +88,15 @@ func Convert(data *encore.Data) {
 			staves[key] = append(staves[key], e)
 		}
 	}
-	for _, v := range staves {
-		sort.Sort(elemSequence(v))
+	sortedKeys := idKeys{}
+	for k := range staves {
+		sortedKeys = append(sortedKeys, k)
 	}
-
+	sort.Sort(sortedKeys)
 	staffVoiceMap := make([][]idKey, len(data.Staff))
-	for k, elems := range staves {
+	for _, k := range sortedKeys {
+		elems := staves[k]
+		sort.Sort(elemSequence(elems))
 		seq := convertStaff(elems)
 		fmt.Printf("%v = %v\n", k.String(), seq)
 		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
@@ -239,10 +259,11 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 			currentTuplet = nil
 			endTupletTick = 0
 		}
-			
-		if e.GetTick() == 0 && lastTick > 0 && e.GetDurationTick() > 0 {
+
+		if e.GetTick() == 0 && e.AbsTick() > lastTick && e.GetDurationTick() > 0 {
 			seq.Append(&lily.BarCheck{})
 		}
+		
 		if i == 0 || e.Measure != elems[i-1].Measure && e.GetTick() == 0 {
 			var last byte
 			if i > 0 {
@@ -278,7 +299,7 @@ func convertStaff(elems []*encore.MeasElem) lily.Elem {
 			seq.Append(convertClef(e.LineStaffData.Clef))
 		}
 		
-		if i > 0 && nextTick < e.AbsTick() {
+		if nextTick < e.AbsTick() {
 			seq.Append(skipTicks(e.AbsTick()-nextTick))
 			nextTick = e.AbsTick()
 		}
