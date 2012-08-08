@@ -33,6 +33,8 @@ type Line struct {
 	VarData []byte
 	LineData
 	Staffs []*LineStaffData
+
+	StaffMap map[int]*LineStaffData
 }
 
 type Page struct {

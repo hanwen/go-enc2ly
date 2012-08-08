@@ -14,14 +14,15 @@ func (l *Line) lineReadStaffs() {
 	if len(d)%30 != 0 {
 		log.Fatalf("must be multiple of 30: %d", len(d))
 	}
-	i := 0
 	for len(d) > 0 {
 		staffRaw := d[:30]
 		d = d[30:]
-		i++
 		lsd := &LineStaffData{}
 		fillFields(staffRaw, lsd)
 		l.Staffs = append(l.Staffs, lsd)
+	}
+	for _, s := range l.Staffs {
+		l.StaffMap[int(s.StaffIdx)] = s
 	}
 }
 
@@ -179,6 +180,7 @@ func ReadData(c []byte) (*Data, error) {
 	f.Lines = make([]*Line, f.Header.LineCount)
 	for i := 0; i < int(f.Header.LineCount); i++ {
 		l := new(Line)
+		l.StaffMap = map[int]*LineStaffData{}
 		l.Id = i
 		f.Lines[i] = l
 		off += readTaggedBlock(c, off, l)
@@ -218,7 +220,7 @@ func setLinks(d *Data) {
 		for _, e := range m.Elems {
 			e.Measure = m
 			e.Staff = d.Staff[e.GetStaff()]
-			e.LineStaffData = d.Lines[systemIdx].Staffs[e.GetStaff()]
+			e.LineStaffData = d.Lines[systemIdx].StaffMap[int(e.StaffIdx)]
 		}
 		m.AbsTick = abs
 		abs += int(m.DurTicks)
