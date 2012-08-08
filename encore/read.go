@@ -9,17 +9,7 @@ import (
 	"strconv"
 )
 
-func (h *Header) fillFirstStaff(staff *Staff) {
-	raw := h.Raw[0xc2:]
-	staff.Raw = raw
-	staff.Offset = 0xc2
-	staff.VarData = raw[8:]
-	staff.VarSize = uint32(len(staff.VarData))
-
-	fillFields(raw[8:], &staff.StaffData)
-}
-
-func (l *Line) readStaffs() {
+func (l *Line) lineReadStaffs() {
 	d := l.VarData[26:]
 	if len(d)%30 != 0 {
 		log.Fatalf("must be multiple of 30: %d", len(d))
@@ -145,17 +135,14 @@ func readTaggedBlock(c []byte, off int, dest interface{}) int {
 		log.Fatalf("missing Raw in %T", dest)
 	}
 
-	want := tagField.Tag.Get("want")
-	if want == "" {
-		log.Fatal("missing want", dest)
-	}
-
 	fixed := tagField.Tag.Get("fixed")
 	sz, _ := strconv.ParseInt(fixed, 0, 64)
 	rawAddr := v.FieldByName("Raw").Addr().Interface().(*[]byte)
 	raw := c[off : off+int(sz)]
 	*rawAddr = raw
-	if string(raw[:len(want)]) != want {
+	
+	want := tagField.Tag.Get("want")
+	if want != "" && string(raw[:len(want)]) != want {
 		log.Fatalf("Got tag %q want %q - %q", raw[:len(want)], want, raw)
 	}
 	fillBlock(raw, off, dest)
@@ -174,17 +161,11 @@ func ReadData(c []byte) (*Data, error) {
 	off := 0
 	off += readTaggedBlock(c, off, &f.Header)
 	f.Staff = make([]*Staff, f.Header.StaffCount)
-	f.Staff[0] = new(Staff)
-	f.Header.fillFirstStaff(f.Staff[0])
-	for i := 1; i < len(f.Staff); i++ {
+	for i := 0; i < len(f.Staff); i++ {
 		s := new(Staff)
 		f.Staff[i] = s
 		s.Id = i
 		off += readTaggedBlock(c, off, s)
-		sz := int(s.VarSize) - 8
-		s.VarData = c[off : off+sz]
-		off += int(sz)
-		fillFields(s.VarData, &s.StaffData)
 	}
 
 	f.Pages = make([]*Page, f.Header.PageCount)
@@ -204,7 +185,7 @@ func ReadData(c []byte) (*Data, error) {
 		l.VarData = c[off : off+int(l.VarSize)]
 		off += int(l.VarSize)
 		fillFields(l.VarData, &l.LineData)
-		l.readStaffs()
+		l.lineReadStaffs()
 	}
 
 	f.Measures = make([]*Measure, f.Header.MeasureCount)

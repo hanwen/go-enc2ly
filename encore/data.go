@@ -4,15 +4,6 @@ import (
 	"fmt"
 )
 
-type Line struct {
-	Id      int
-	Offset  int
-	Raw     []byte `want:"LINE" fixed:"8"`
-	VarSize uint32 `offset:"0x4"`
-	VarData []byte
-	LineData
-	Staffs []*LineStaffData
-}
 
 type Data struct {
 	Raw      []byte
@@ -25,13 +16,23 @@ type Data struct {
 
 type Header struct {
 	Offset int
-	Raw    []byte `want:"SCOW" fixed:"436"`
+	Raw    []byte `want:"SCOW" fixed:"194"`
 
 	LineCount      int16 `offset:"0x2e"`
 	PageCount      int16 `offset:"0x30"`
 	StaffCount     byte  `offset:"0x32"`
 	StaffPerSystem byte  `offset:"0x33"`
 	MeasureCount   int16 `offset:"0x34"`
+}
+
+type Line struct {
+	Id      int
+	Offset  int
+	Raw     []byte `want:"LINE" fixed:"8"`
+	VarSize uint32 `offset:"0x4"`
+	VarData []byte
+	LineData
+	Staffs []*LineStaffData
 }
 
 type Page struct {
@@ -89,14 +90,8 @@ type Staff struct {
 	Offset int
 
 	// Sometimes TK00, sometimes TK01
-	Raw     []byte `want:"TK0" fixed:"8"`
-	VarSize uint32 `offset:"4"`
-	VarData []byte
+	Raw     []byte `fixed:"242"`
 
-	StaffData
-}
-
-type StaffData struct {
 	Name [10]byte `offset:"8"`
 
 	// 174, 175, 
@@ -194,7 +189,7 @@ func (n *MeasElem) Sz() int {
 }
 
 func (n *MeasElem) GetStaff() int {
-	return int(n.StaffIdx)
+	return int(n.StaffIdx & 63)
 }
 
 func (n *MeasElem) GetOffset() int {
