@@ -105,11 +105,10 @@ type Staff struct {
 	// 6=F_8
 	Clef byte `offset:"172"`
 
-	// 181 = 1 for piano staff. ?
+	// Other candidates: 169, 170, 177
+	PianoStaff byte `offset:"181"`
 
-	// 180 - 187: MIDI channel (repeated?)
-	// 188 - 195: MIDI program (repeated?)
-	// 196 - 203: MIDI volume (repeated?)
+	// 188 - 212: MIDI channel (repeated?), MIDI program (repeated?), MIDI volume (repeated?)
 
 	// 164 ?
 

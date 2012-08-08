@@ -86,7 +86,7 @@ func Convert(data *encore.Data) {
 	for _, m := range data.Measures {
 		for _, e := range m.Elems {
 			key := idKey{
-				staff: e.GetStaff(),
+				staff: int(e.StaffIdx),
 				voice: e.Voice(),
 			}
 			staves[key] = append(staves[key], e)
@@ -97,7 +97,7 @@ func Convert(data *encore.Data) {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Sort(sortedKeys)
-	staffVoiceMap := make([][]idKey, len(data.Staff))
+	staffVoiceMap := make(map[int][]idKey, len(data.Staff))
 	for _, k := range sortedKeys {
 		elems := staves[k]
 		sort.Sort(elemSequence(elems))
@@ -106,8 +106,14 @@ func Convert(data *encore.Data) {
 		staffVoiceMap[k.staff] = append(staffVoiceMap[k.staff], k)
 	}
 
+	sortedStaves := []int{}
+	for k := range staffVoiceMap {
+		sortedStaves = append(sortedStaves, k)
+	}
+	sort.Ints(sortedStaves)
 	fmt.Printf("<<\n")
-	for _, voices := range staffVoiceMap {
+	for _, k := range sortedStaves {
+		voices := staffVoiceMap[k]
 		fmt.Printf("  \\new Staff << \n")
 		for _, voice := range voices {
 			fmt.Printf("  \\new Voice \\%s\n", voice.String())
@@ -182,7 +188,15 @@ func convertRest(n *encore.Rest) (dur lily.Duration) {
 }
 
 func Int2Letter(a int) string {
-	return string(byte(a) + 'A')
+	k := ""
+	for a != 0 {
+		k = k + string(byte(a&0xf) + 'A')
+		a >>= 4
+	}
+	if k == "" {
+		k = "A"
+	}
+	return k
 }
 
 func convertNote(n *encore.Note, baseStep lily.Pitch) (pit lily.Pitch, dur lily.Duration) {
