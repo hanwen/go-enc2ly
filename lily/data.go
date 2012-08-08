@@ -86,9 +86,14 @@ func (p *Pitch) Normalize() {
 func (p *Pitch) String() string {
 	names := []string{"c", "d", "e", "f", "g", "a", "b"}
 	altsuffix := []string{"eses", "es", "", "is", "isis"}
-
+	alt := p.Alteration
+	if alt < -2 || alt > 2 {
+		log.Printf("illegal alteration %d", alt)
+		alt = 0
+	}
 	n := names[p.Notename]
-	n += altsuffix[p.Alteration+2]
+	
+	n += altsuffix[alt+2]
 	if p.Octave < 0 {
 		for i := -1; i > p.Octave; i-- {
 			n += ","
