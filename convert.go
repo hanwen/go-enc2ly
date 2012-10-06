@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"go-enc2ly/lily"
 	"log"
 	"math/big"
 	"sort"
 
-	"go-enc2ly/encore"
+	"github.com/hanwen/go-enc2ly/lily"
+	"github.com/hanwen/go-enc2ly/encore"
 )
 
 // TODO - text elements

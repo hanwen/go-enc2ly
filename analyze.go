@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"go-enc2ly/encore"
+	"github.com/hanwen/go-enc2ly/encore"
 )
 
 func analyze(d *encore.Data) {
