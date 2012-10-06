@@ -132,37 +132,6 @@ func analyzeBeam(d *encore.Data) {
 	}
 }
 
-func analyzeStaffHeader(d *encore.Data) {
-	occs := make([]map[int]int, len(d.Staff[0].VarData))
-	for i := range occs {
-		occs[i] = make(map[int]int)
-	}
-
-	for _, c := range d.Staff {
-		for i := range c.VarData {
-			m := occs[i]
-			m[int(c.VarData[i])]++
-		}
-	}
-	log.Printf("looking for key")
-	for j, o := range occs {
-		if len(o) == 1 {
-			continue
-		}
-		log.Println("values", j, len(o))
-		for _, c := range d.Staff {
-			fmt.Printf("%d ", c.VarData[j])
-		}
-		fmt.Printf("\n")
-	}
-
-	for i, o := range occs {
-		if len(o) == 3 {
-			fmt.Printf("%d: %d diff %v\n", i, len(o), o)
-		}
-	}
-}
-
 func messM(d *encore.Data) {
 	raw := make([]byte, len(d.Raw))
 	copy(raw, d.Raw)
