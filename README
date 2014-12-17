@@ -10,7 +10,7 @@ COMPILATION
 
 * Then run
 
-    mkdir /tmp/go 
+    mkdir /tmp/go
     export GOPATH=/tmp/go
     go get github.com/hanwen/go-enc2ly
 
@@ -22,8 +22,12 @@ CREDITS
 Large parts of the reverse engineering effort were done by Felipe
 Castro as part of enc2ly, http://enc2ly.sourceforge.net/en/
 
-  
+
 LICENSE
 
 GPL v3.
 
+
+DISCLAIMER
+
+This is not an official Google product.
